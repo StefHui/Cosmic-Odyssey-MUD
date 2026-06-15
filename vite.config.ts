@@ -5,6 +5,9 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // GitHub Pages serves a project repo under /<repo>/. Set base only for that build
+    // (GITHUB_PAGES=true) so local dev/preview still work at root.
+    base: process.env.GITHUB_PAGES === 'true' ? '/Cosmic-Odyssey-MUD/' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
