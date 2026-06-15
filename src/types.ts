@@ -15,6 +15,13 @@ export interface Equipment {
   name: string;
   level: number;
   bonus: number;
+  // --- Dropped-gear tracking (Stage 2). Present when a DroppedGear is equipped in this slot. ---
+  gearUid?: string;        // uid of the equipped DroppedGear (undefined = starter gear)
+  rarity?: GearRarity;
+  element?: ElementType;
+  appliedAtk?: number;     // atk bonus this gear currently contributes to the character
+  appliedDef?: number;     // def bonus
+  appliedHp?: number;      // maxHp bonus
 }
 
 export interface EquipmentSet {
@@ -42,6 +49,16 @@ export interface Character {
   equipment: EquipmentSet;
 }
 
+export type MonsterTier = "normal" | "elite" | "boss";
+
+export interface DropEntry {
+  kind: "material" | "item" | "gear";
+  id: string; // material id | item id | gear template id
+  chance: number; // 0..1 base chance (pre time-of-day bonus)
+  min: number; // min qty when it drops
+  max: number; // max qty
+}
+
 export interface MonsterTemplate {
   name: string;
   baseHp: number;
@@ -52,6 +69,9 @@ export interface MonsterTemplate {
   rewardGold: number;
   description: string;
   emoji: string;
+  tier: MonsterTier;
+  timeAvailability: TimeOfDay[]; // which time slots this monster can appear in
+  dropTable: DropEntry[];
 }
 
 export interface Monster {
@@ -67,6 +87,35 @@ export interface Monster {
   description: string;
   emoji: string;
   isDead: boolean;
+  tier: MonsterTier;
+  dropTable: DropEntry[];
+}
+
+// --- Gear drops (Stage 2): lightweight inventory of equippable/sellable gear ---
+export type GearRarity = "common" | "rare" | "epic" | "legendary";
+
+export interface GearTemplate {
+  id: string;
+  name: string;
+  slot: "weapon" | "armor";
+  rarity: GearRarity;
+  element?: ElementType;
+  atkBonusRange?: [number, number]; // weapon
+  defBonusRange?: [number, number]; // armor
+  hpBonusRange?: [number, number]; // armor
+}
+
+export interface DroppedGear {
+  uid: string; // unique instance id
+  templateId: string;
+  slot: "weapon" | "armor";
+  rarity: GearRarity;
+  name: string;
+  level: number; // start level 1, upgradable
+  atkBonus: number;
+  defBonus: number;
+  hpBonus: number;
+  element?: ElementType;
 }
 
 export interface Quest {
@@ -97,8 +146,8 @@ export interface Item {
   id: string;
   name: string;
   description: string;
-  type: "healing" | "mana" | "revive";
-  effectValue: number;
+  type: "healing" | "mana" | "revive" | "buff";
+  effectValue: number; // healing/mana: flat amount; revive: % of maxHp; buff: % ATK for the battle
   price: number;
   emoji: string;
   count: number;
@@ -167,6 +216,7 @@ export interface GameSave {
   craftedArtifactIds?: string[]; // crafted passive accessories
   claimedAchievementIds?: string[]; // claimed milestones
   decryptedLogIds?: string[]; // decrypted story logs
+  gearInventory?: DroppedGear[]; // dropped gear (Stage 2)
   statistics: {
     totalGoldGained: number;
     totalMonstersSlain: number;

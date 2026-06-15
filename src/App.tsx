@@ -50,7 +50,10 @@ import {
   Material,
   Artifact,
   SpaceEvent,
-  Achievement
+  Achievement,
+  DroppedGear,
+  DropEntry,
+  MonsterTier
 } from "./types";
 
 import {
@@ -70,7 +73,11 @@ import {
   RANDOM_EVENTS,
   TIME_ORDER,
   getTimeOfDayLabel,
-  applyExpGain
+  applyExpGain,
+  GEAR_TEMPLATES,
+  GEAR_RARITY_LABEL,
+  GEAR_RARITY_COLOR,
+  rollDroppedGear
 } from "./data";
 
 import ElementChart from "./components/ElementChart";
@@ -170,11 +177,13 @@ export default function App() {
   const [craftedArtifactIds, setCraftedArtifactIds] = useState<string[]>([]);
   const [claimedAchievementIds, setClaimedAchievementIds] = useState<string[]>([]);
   const [activeSpaceEvent, setActiveSpaceEvent] = useState<SpaceEvent | null>(null);
+  // 🛡️ Dropped gear inventory (Stage 2)
+  const [gearInventory, setGearInventory] = useState<DroppedGear[]>([]);
 
   // --- UI/UX Navigation ---
   const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests">("explore");
   const [questsSubTab, setQuestsSubTab] = useState<"board" | "achievements">("board");
-  const [smithySubTab, setSmithySubTab] = useState<"forge" | "alchemy" | "awaken">("forge");
+  const [smithySubTab, setSmithySubTab] = useState<"forge" | "alchemy" | "awaken" | "gear">("forge");
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
   const [itemUsageTargetSelector, setItemUsageTargetSelector] = useState<{ isOpen: boolean; item: Item | null }>({
@@ -236,6 +245,7 @@ export default function App() {
     round: number;
     activePartyTurnIndex: number; // 0..3 index of party member currently acting
     isAutoCombat: boolean;
+    atkBuffPct?: number; // transient ATK buff for THIS battle (from tonic_atk), e.g. 0.2 = +20%
     damageNumbers: Array<{
       id: string;
       text: string;
@@ -301,6 +311,9 @@ export default function App() {
         if (parsed.decryptedLogIds) {
           setDecryptedLogIds(parsed.decryptedLogIds);
         }
+        if (parsed.gearInventory) {
+          setGearInventory(parsed.gearInventory);
+        }
 
         addLog("📂 檢測到已存檔的高能程式波形，已成功逆向載入隊伍進度！", "system");
       }
@@ -329,7 +342,8 @@ export default function App() {
     currentAchievements?: string[],
     currentDecryptedLogs?: string[],
     currentDaysPassed?: number,
-    currentTimeSlotIndex?: number
+    currentTimeSlotIndex?: number,
+    currentGearInventory?: DroppedGear[]
   ) => {
     const data: GameSave = {
       saveVersion: 1,
@@ -344,6 +358,7 @@ export default function App() {
       craftedArtifactIds: currentArtifacts || craftedArtifactIds,
       claimedAchievementIds: currentAchievements || claimedAchievementIds,
       decryptedLogIds: currentDecryptedLogs || decryptedLogIds,
+      gearInventory: currentGearInventory || gearInventory,
       unlockedCompanions: [],
       statistics: currentStats
     };
@@ -396,6 +411,7 @@ export default function App() {
     setCraftedArtifactIds([]);
     setClaimedAchievementIds([]);
     setDecryptedLogIds([]);
+    setGearInventory([]);
     setActiveZoneId("zone_1");
     setStatistics({
       totalGoldGained: 150,
@@ -857,6 +873,61 @@ export default function App() {
     triggerAutosave(nextGold, nextParty, quests, items, activeZoneId, statistics);
   };
 
+  // Equip a dropped gear onto a party member. Reversible: we track the gear's
+  // currently-applied bonus on the slot, so swapping removes the old bonus then adds the new.
+  const equipGear = (charId: string, gearUid: string) => {
+    const gear = gearInventory.find((g) => g.uid === gearUid);
+    if (!gear) return;
+    const member = party.find((m) => m.id === charId);
+    if (!member) return;
+
+    const slot = gear.slot;
+    const current = member.equipment[slot];
+    if (current.gearUid === gearUid) {
+      addLog(`⚠️ 該裝備已裝備在【${member.name}】身上。`, "system");
+      return;
+    }
+
+    const deltaAtk = gear.atkBonus - (current.appliedAtk || 0);
+    const deltaDef = gear.defBonus - (current.appliedDef || 0);
+    const deltaHp = gear.hpBonus - (current.appliedHp || 0);
+
+    const newEq: Equipment = {
+      name: gear.name,
+      level: gear.level,
+      bonus: slot === "weapon" ? gear.atkBonus : gear.defBonus,
+      gearUid: gear.uid,
+      rarity: gear.rarity,
+      element: gear.element,
+      appliedAtk: gear.atkBonus,
+      appliedDef: gear.defBonus,
+      appliedHp: gear.hpBonus
+    };
+
+    const nextParty = party.map((m) => {
+      if (m.id !== charId) return m;
+      const newMaxHp = m.maxHp + deltaHp;
+      const newEquipment: EquipmentSet =
+        slot === "weapon" ? { ...m.equipment, weapon: newEq } : { ...m.equipment, armor: newEq };
+      return {
+        ...m,
+        atk: m.atk + deltaAtk,
+        def: m.def + deltaDef,
+        maxHp: newMaxHp,
+        hp: Math.max(1, Math.min(newMaxHp, m.hp + Math.max(0, deltaHp))),
+        equipment: newEquipment
+      };
+    });
+    setParty(nextParty);
+
+    const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+    addLog(
+      `🛡️ 裝備更換：【${member.name}】裝上了【${GEAR_RARITY_LABEL[gear.rarity]}】${gear.name}！(⚔️${fmt(deltaAtk)} 🛡️${fmt(deltaDef)} ❤️${fmt(deltaHp)})`,
+      "player_action"
+    );
+    triggerAutosave(gold, nextParty, quests, items, activeZoneId, statistics);
+  };
+
   // --- Combat Engine Logic ---
 
   // Trigger Combat Start
@@ -893,9 +964,30 @@ export default function App() {
       return;
     }
 
-    // Select random monster template
-    const randTmpName = zone.monsters[Math.floor(Math.random() * zone.monsters.length)];
-    const template = MONSTER_TEMPLATES[randTmpName] || MONSTER_TEMPLATES.slime_plant;
+    // Spawn picker: filter by time-of-day, then weight by tier (normal 70 / elite 25 / boss 5).
+    const pool = zone.monsters
+      .map((name) => MONSTER_TEMPLATES[name])
+      .filter((t) => t && t.timeAvailability.includes(currentTimeOfDay));
+
+    const candidates = pool.length > 0 ? pool : [MONSTER_TEMPLATES.slime_plant];
+
+    const byTier: Record<MonsterTier, MonsterTemplate[]> = { normal: [], elite: [], boss: [] };
+    candidates.forEach((t) => byTier[t.tier].push(t));
+
+    const tierWeights: Array<[MonsterTier, number]> = [];
+    if (byTier.normal.length) tierWeights.push(["normal", 70]);
+    if (byTier.elite.length) tierWeights.push(["elite", 25]);
+    if (byTier.boss.length) tierWeights.push(["boss", 5]);
+
+    const totalWeight = tierWeights.reduce((s, [, w]) => s + w, 0);
+    let roll = Math.random() * totalWeight;
+    let chosenTier: MonsterTier = tierWeights[0][0];
+    for (const [tier, w] of tierWeights) {
+      if (roll < w) { chosenTier = tier; break; }
+      roll -= w;
+    }
+    const bucket = byTier[chosenTier];
+    const template = bucket[Math.floor(Math.random() * bucket.length)];
 
     // 🌙 Night: monsters are buffed (hp/atk ×1.25, def ×1.15).
     const isNight = currentTimeOfDay === "night";
@@ -915,9 +1007,16 @@ export default function App() {
       rewardGold: template.rewardGold,
       description: template.description,
       emoji: template.emoji,
-      isDead: false
+      isDead: false,
+      tier: template.tier,
+      dropTable: template.dropTable
     };
 
+    if (template.tier === "boss") {
+      addLog(`☠️ 警告：偵測到極高能量讀數 —— 這是一隻【域主級】強敵！`, "system");
+    } else if (template.tier === "elite") {
+      addLog(`⚠️ 偵測到強化精英個體信號，戰力高於一般魔物！`, "system");
+    }
     if (isNight) {
       addLog(`🌙 夜域強化：魔物在夜色中變得更兇猛 (生命/攻擊 +25%，防禦 +15%)！`, "system");
     }
@@ -1076,10 +1175,13 @@ export default function App() {
     let costMp = 0;
     let actionAnimType: "critical" | "guarded" | "normal" | "heal" | "revive" = "normal";
 
+    // 🧬 tonic_atk per-battle ATK buff (1.0 = none)
+    const atkBuff = 1 + (combat.atkBuffPct || 0);
+
     if (actionType === "attack") {
       // Normal attack
       const relation = getElementRelation(actor.element, monster.element);
-      const baseDmg = actor.atk;
+      const baseDmg = actor.atk * atkBuff;
       damage = Math.max(2, Math.round((baseDmg - monster.def * 0.4) * relation.multiplier));
       actionAnimType = relation.type;
 
@@ -1112,7 +1214,7 @@ export default function App() {
 
       if (skill.effect === "damage") {
         const relation = getElementRelation(actor.element, monster.element);
-        const baseDmg = actor.atk * skill.multiplier;
+        const baseDmg = actor.atk * skill.multiplier * atkBuff;
         damage = Math.max(5, Math.round((baseDmg - monster.def * 0.45) * relation.multiplier));
         actionAnimType = relation.type;
 
@@ -1166,7 +1268,7 @@ export default function App() {
       } else if (skill.effect === "shield") {
         // Paladin Sacred Aegis Shield / Minor area damage + heal allies
         const healAmt = 100;
-        const baseDmg = actor.atk * 1.2;
+        const baseDmg = actor.atk * 1.2 * atkBuff;
         const relation = getElementRelation(actor.element, monster.element);
         damage = Math.max(2, Math.round((baseDmg - monster.def * 0.4) * relation.multiplier));
         actionAnimType = relation.type;
@@ -1200,24 +1302,31 @@ export default function App() {
       setItems(countAlteredItems);
 
       let targetText = "";
+      let animText = "";
       const updatedParty = party.map((m, idx) => {
         if (idx === activePartyTurnIndex) {
           if (targetItem.type === "healing") {
             const nextHp = Math.min(m.maxHp, m.hp + targetItem.effectValue);
             targetText = `給【${m.name}】灌注了 ${targetItem.name}，微觀奈米機器人瘋狂復原 +${targetItem.effectValue} HP！`;
+            animText = `+${targetItem.effectValue} HP 🧪`;
             return { ...m, hp: nextHp, isDead: false };
           } else if (targetItem.type === "mana") {
             const nextMp = Math.min(m.maxMp, m.mp + targetItem.effectValue);
             targetText = `給【${m.name}】接入了 ${targetItem.name}，能量魔能儲存腔快速補充 +${targetItem.effectValue} MP！`;
+            animText = `+${targetItem.effectValue} MP 🌀`;
             return { ...m, mp: nextMp };
           } else if (targetItem.type === "revive") {
             if (m.hp <= 0 || m.isDead) {
-              const revivedHp = Math.round(m.maxHp * 0.5);
-              targetText = `向【${m.name}】投射 ${targetItem.name}！強制倒帶生命程式，逆時復活成功並回復 +${revivedHp} HP！`;
+              const revivedHp = Math.round(m.maxHp * (targetItem.effectValue / 100));
+              targetText = `向【${m.name}】投射 ${targetItem.name}！強制倒帶生命程式，逆時復活成功並回復 +${revivedHp} HP (${targetItem.effectValue}%)！`;
+              animText = `+${revivedHp} HP ✨`;
               return { ...m, hp: revivedHp, isDead: false };
             } else {
-              targetText = `對【${m.name}】使用了甦生羽，但其心跳信號良好，僅提供少量高階淨化效果。`;
+              targetText = `對【${m.name}】使用了 ${targetItem.name}，但其心跳信號良好，僅提供少量高階淨化效果。`;
             }
+          } else if (targetItem.type === "buff") {
+            targetText = `【${m.name}】注射了 ${targetItem.name}！本場戰鬥的攻擊力提升 ${targetItem.effectValue}%！`;
+            animText = `ATK +${targetItem.effectValue}% 🧬`;
           }
         }
         return m;
@@ -1226,10 +1335,15 @@ export default function App() {
       setParty(updatedParty);
       addLog(`🧪 背包補給！${targetText}`, "player_action");
 
-      // Add healing damage numbers animation
+      // Apply the transient battle ATK buff (stacks additively for the rest of this battle)
+      if (targetItem.type === "buff") {
+        setCombat((prev) => (prev ? { ...prev, atkBuffPct: (prev.atkBuffPct || 0) + targetItem.effectValue / 100 } : null));
+      }
+
+      // Add overlay number animation on the targeted ally card
       const itemAnim = {
         id: `item_anim_${Date.now()}`,
-        text: `+${targetItem.effectValue} ${targetItem.type === "healing" ? "HP 🧪" : "MP 🌀"}`,
+        text: animText || targetItem.name,
         isMonsterTarget: false,
         targetIndex: activePartyTurnIndex,
         type: "heal" as const
@@ -1458,30 +1572,54 @@ export default function App() {
     const timeNote = bonusNotes.length > 0 ? ` (${bonusNotes.join("、")})` : "";
     addLog(`💰 冒險核對：開拓帳戶新增能源金幣 +${actualRewardGold} ✨！${timeNote}`, "victory");
 
-    // Material rewards drop mechanics
-    let droppedMatId = "";
-    const rand = Math.random();
-    if (activeZoneId === "zone_1") {
-      if (rand < 0.65) droppedMatId = "stardust_shard";
-    } else if (activeZoneId === "zone_2") {
-      if (rand < 0.55) droppedMatId = "heavy_water_crystal";
-      else if (rand < 0.75) droppedMatId = "stardust_shard";
-    } else if (activeZoneId === "zone_3") {
-      if (rand < 0.50) droppedMatId = "plasma_battery";
-      else if (rand < 0.70) droppedMatId = "heavy_water_crystal";
-    } else if (activeZoneId === "zone_4") {
-      if (rand < 0.45) droppedMatId = "plasma_battery";
-      else if (rand < 0.65) droppedMatId = "nebula_core";
-    } else if (activeZoneId === "zone_5") {
-      if (rand < 0.60) droppedMatId = "nebula_core";
+    // --- Drop-table resolution. Night boosts chance ×1.4 (cap .95) and +1 max qty. ---
+    const nextMaterials = { ...materials };
+    let nextItems = items;
+    let nextGearInventory = gearInventory;
+    const itemCounts: Record<string, number> = {};
+
+    for (const entry of monster.dropTable) {
+      let chance = entry.chance;
+      let maxQty = entry.max;
+      if (isNight) {
+        chance = Math.min(0.95, chance * 1.4);
+        maxQty += 1;
+      }
+      if (Math.random() < chance) {
+        const qty = Math.floor(Math.random() * (maxQty - entry.min + 1)) + entry.min;
+        if (entry.kind === "material" && MATERIALS[entry.id]) {
+          nextMaterials[entry.id] = (nextMaterials[entry.id] || 0) + qty;
+          addLog(`📦 戰利品：拾獲【${MATERIALS[entry.id].emoji} ${MATERIALS[entry.id].name} x${qty}】！`, "crafting");
+        } else if (entry.kind === "item") {
+          itemCounts[entry.id] = (itemCounts[entry.id] || 0) + qty;
+        } else if (entry.kind === "gear") {
+          const rolled: DroppedGear[] = [];
+          for (let i = 0; i < qty; i++) {
+            const g = rollDroppedGear(entry.id);
+            if (g) rolled.push(g);
+          }
+          if (rolled.length > 0) {
+            nextGearInventory = [...nextGearInventory, ...rolled];
+            rolled.forEach((g) =>
+              addLog(`🎁 裝備掉落：【${GEAR_RARITY_LABEL[g.rarity]}】${g.name}（⚔️+${g.atkBonus} 🛡️+${g.defBonus} ❤️+${g.hpBonus}）已收入裝備庫！`, "crafting")
+            );
+          }
+        }
+      }
     }
 
-    const nextMaterials = { ...materials };
-    if (droppedMatId && MATERIALS[droppedMatId]) {
-      nextMaterials[droppedMatId] = (nextMaterials[droppedMatId] || 0) + 1;
-      setMaterials(nextMaterials);
-      addLog(`📦 戰場廢墟物資回收：拾獲【${MATERIALS[droppedMatId].emoji} ${MATERIALS[droppedMatId].name} x1】已納入小隊貨艙！`, "crafting");
+    // Apply consumable drops in one pass
+    if (Object.keys(itemCounts).length > 0) {
+      nextItems = items.map((it) => (itemCounts[it.id] ? { ...it, count: it.count + itemCounts[it.id] } : it));
+      Object.entries(itemCounts).forEach(([id, q]) => {
+        const tmpl = items.find((i) => i.id === id);
+        if (tmpl) addLog(`🎁 補給掉落：【${tmpl.emoji} ${tmpl.name} x${q}】！`, "crafting");
+      });
     }
+
+    setMaterials(nextMaterials);
+    if (nextItems !== items) setItems(nextItems);
+    if (nextGearInventory !== gearInventory) setGearInventory(nextGearInventory);
 
     // Distribute EXP
     const expHealedParty = finalPartyState.map((member) => {
@@ -1513,7 +1651,7 @@ export default function App() {
 
     setCombat(null);
     const nextSlot = advanceTimeSlot(); // venture resolved → consume a slot
-    triggerAutosave(nextGold, expHealedParty, updatedQuests, items, activeZoneId, nextStats, nextMaterials, undefined, undefined, undefined, undefined, nextSlot);
+    triggerAutosave(nextGold, expHealedParty, updatedQuests, nextItems, activeZoneId, nextStats, nextMaterials, undefined, undefined, undefined, undefined, nextSlot, nextGearInventory);
   };
 
   // Player Defeat Flow (Soft game over, recovery back in town with slight fee)
@@ -1598,6 +1736,12 @@ export default function App() {
     const companion = party[colleagueIndex];
     if (!companion) return;
 
+    // Battle-only buffs (tonic) can't be used in town; don't waste them.
+    if (item.type === "buff") {
+      addLog(`⚠️ 【${item.name}】屬於戰鬥強化劑，只能在戰鬥中對出戰隊員使用。`, "system");
+      return;
+    }
+
     // Apply outcomes
     let adjustedItems = items.map((i) => {
       if (i.id === itemId) return { ...i, count: i.count - 1 };
@@ -1618,8 +1762,8 @@ export default function App() {
           return { ...m, mp: nextMp };
         } else if (item.type === "revive") {
           if (m.hp <= 0 || m.isDead) {
-            const revivedHp = Math.round(m.maxHp * 0.5);
-            logsText = `⚙️ 程式逆重構成效：【${m.name}】原位啟動，注入 50% 核心生命波 (+${revivedHp} HP) 解除死機態！`;
+            const revivedHp = Math.round(m.maxHp * (item.effectValue / 100));
+            logsText = `⚙️ 程式逆重構成效：【${m.name}】原位啟動，注入 ${item.effectValue}% 核心生命波 (+${revivedHp} HP) 解除死機態！`;
             return { ...m, hp: revivedHp, isDead: false };
           } else {
             logsText = `⚠️ 施效偏振：【${m.name}】不處於死機態，量子羽毛注入僅溢出微弱的戰備抗磨抗性。`;
@@ -2653,10 +2797,10 @@ export default function App() {
                   <div className="space-y-3 font-mono">
                     
                     {/* Smithy Sub-Tabs Navigation */}
-                    <div className="grid grid-cols-3 gap-1">
+                    <div className="grid grid-cols-4 gap-1">
                       <button
                         onClick={() => setSmithySubTab("forge")}
-                        className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "forge"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
                             : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
@@ -2665,8 +2809,18 @@ export default function App() {
                         🏪 戰備物資
                       </button>
                       <button
+                        onClick={() => setSmithySubTab("gear")}
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer relative ${
+                          smithySubTab === "gear"
+                            ? "bg-amber-500 border-amber-600 text-slate-950"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                        }`}
+                      >
+                        🛡️ 裝備庫{gearInventory.length > 0 ? ` (${gearInventory.length})` : ""}
+                      </button>
+                      <button
                         onClick={() => setSmithySubTab("alchemy")}
-                        className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "alchemy"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
                             : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
@@ -2676,7 +2830,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={() => setSmithySubTab("awaken")}
-                        className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "awaken"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
                             : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
@@ -2685,6 +2839,67 @@ export default function App() {
                         ☀️ 聖格覺醒
                       </button>
                     </div>
+
+                    {smithySubTab === "gear" && (
+                      <div className="space-y-3">
+                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                          <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
+                            🛡️ 戰備裝備庫 (Gear Vault)
+                          </p>
+                          狩獵掉落的武器與防具收藏於此。為隊員裝備可即時替換屬性加成（換裝可逆，舊裝備保留）。出售請至交易所。
+                        </div>
+
+                        {gearInventory.length === 0 ? (
+                          <div className="text-center text-[11px] text-slate-500 py-6 border border-dashed border-slate-800 rounded-lg">
+                            尚無掉落裝備。擊敗精英 / 域主魔物有機會獲得稀有裝備！夜晚掉落率更高。
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {gearInventory.map((g) => {
+                              const equippedBy = party.find((m) => m.equipment[g.slot].gearUid === g.uid);
+                              return (
+                                <div key={g.uid} className={`p-2.5 rounded-lg border ${GEAR_RARITY_COLOR[g.rarity]}`}>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold flex items-center gap-1">
+                                      {g.slot === "weapon" ? "⚔️" : "🛡️"} {g.name}
+                                      <span className="text-[9px] px-1 rounded border opacity-80">{GEAR_RARITY_LABEL[g.rarity]}</span>
+                                    </span>
+                                    {equippedBy && (
+                                      <span className="text-[9px] text-emerald-400 font-mono">● 裝備中：{equippedBy.name.split(" ")[0]}</span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-300 font-mono mt-1">
+                                    {g.atkBonus > 0 && <span className="mr-2">⚔️ ATK +{g.atkBonus}</span>}
+                                    {g.defBonus > 0 && <span className="mr-2">🛡️ DEF +{g.defBonus}</span>}
+                                    {g.hpBonus > 0 && <span className="mr-2">❤️ HP +{g.hpBonus}</span>}
+                                    {g.element && <span className="opacity-70">({getElementEmoji(g.element)})</span>}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {party.map((m) => {
+                                      const isOn = m.equipment[g.slot].gearUid === g.uid;
+                                      return (
+                                        <button
+                                          key={m.id}
+                                          onClick={() => equipGear(m.id, g.uid)}
+                                          disabled={isOn}
+                                          className={`text-[10px] px-2 py-1 rounded border font-mono cursor-pointer transition-all ${
+                                            isOn
+                                              ? "bg-emerald-900/40 border-emerald-700 text-emerald-300 cursor-not-allowed"
+                                              : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800"
+                                          }`}
+                                        >
+                                          {isOn ? "✓ " : "裝備→"}{m.name.split(" ")[0]}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {smithySubTab === "forge" && (
                       <div className="space-y-3">
