@@ -217,6 +217,7 @@ export interface GameSave {
   claimedAchievementIds?: string[]; // claimed milestones
   decryptedLogIds?: string[]; // decrypted story logs
   gearInventory?: DroppedGear[]; // dropped gear (Stage 2)
+  forgePity?: Record<string, number>; // per-slot accumulated forge luck (Stage 3)
   statistics: {
     totalGoldGained: number;
     totalMonstersSlain: number;

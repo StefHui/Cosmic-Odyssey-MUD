@@ -53,7 +53,8 @@ import {
   Achievement,
   DroppedGear,
   DropEntry,
-  MonsterTier
+  MonsterTier,
+  GearRarity
 } from "./types";
 
 import {
@@ -77,7 +78,11 @@ import {
   GEAR_TEMPLATES,
   GEAR_RARITY_LABEL,
   GEAR_RARITY_COLOR,
-  rollDroppedGear
+  rollDroppedGear,
+  materialBuyPrice,
+  materialSellPrice,
+  gearSellValue,
+  gearBuyPrice
 } from "./data";
 
 import ElementChart from "./components/ElementChart";
@@ -179,9 +184,14 @@ export default function App() {
   const [activeSpaceEvent, setActiveSpaceEvent] = useState<SpaceEvent | null>(null);
   // 🛡️ Dropped gear inventory (Stage 2)
   const [gearInventory, setGearInventory] = useState<DroppedGear[]>([]);
+  // 🔨 Per-slot forge pity (Stage 3). Key = `${charId}_${weapon|armor}`.
+  const [forgePity, setForgePity] = useState<Record<string, number>>({});
+  // 🏪 Trading-post daily stock (transient — not persisted; regenerates each in-game day)
+  const [exchangeStock, setExchangeStock] = useState<Array<{ kind: "gear" | "item"; id: string; price: number; rarity?: string }>>([]);
+  const [exchangeStockDay, setExchangeStockDay] = useState<number>(-1);
 
   // --- UI/UX Navigation ---
-  const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests">("explore");
+  const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests" | "exchange">("explore");
   const [questsSubTab, setQuestsSubTab] = useState<"board" | "achievements">("board");
   const [smithySubTab, setSmithySubTab] = useState<"forge" | "alchemy" | "awaken" | "gear">("forge");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -314,6 +324,9 @@ export default function App() {
         if (parsed.gearInventory) {
           setGearInventory(parsed.gearInventory);
         }
+        if (parsed.forgePity) {
+          setForgePity(parsed.forgePity);
+        }
 
         addLog("📂 檢測到已存檔的高能程式波形，已成功逆向載入隊伍進度！", "system");
       }
@@ -329,6 +342,15 @@ export default function App() {
     }
   }, [narrativeLogs, combat?.round, combat?.activePartyTurnIndex]);
 
+  // --- Trading-post daily stock refresh (regenerates whenever the day advances) ---
+  useEffect(() => {
+    if (exchangeStockDay !== daysPassed) {
+      setExchangeStock(generateExchangeStock());
+      setExchangeStockDay(daysPassed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daysPassed]);
+
   // --- Safe Saving Function (Autosave Toast) ---
   const triggerAutosave = (
     currentGold: number,
@@ -343,7 +365,8 @@ export default function App() {
     currentDecryptedLogs?: string[],
     currentDaysPassed?: number,
     currentTimeSlotIndex?: number,
-    currentGearInventory?: DroppedGear[]
+    currentGearInventory?: DroppedGear[],
+    currentForgePity?: Record<string, number>
   ) => {
     const data: GameSave = {
       saveVersion: 1,
@@ -359,6 +382,7 @@ export default function App() {
       claimedAchievementIds: currentAchievements || claimedAchievementIds,
       decryptedLogIds: currentDecryptedLogs || decryptedLogIds,
       gearInventory: currentGearInventory || gearInventory,
+      forgePity: currentForgePity || forgePity,
       unlockedCompanions: [],
       statistics: currentStats
     };
@@ -412,6 +436,7 @@ export default function App() {
     setClaimedAchievementIds([]);
     setDecryptedLogIds([]);
     setGearInventory([]);
+    setForgePity({});
     setActiveZoneId("zone_1");
     setStatistics({
       totalGoldGained: 150,
@@ -495,7 +520,16 @@ export default function App() {
 
   // --- Town Actions ---
 
-  // Blacksmith Upgrade Gear
+  const forgeSlotKey = (charId: string, type: "weapon" | "armor") => `${charId}_${type}`;
+
+  // Forge success chance: drops 7% per level (floor 30%), plus accumulated pity bonus (cap 99%).
+  const forgeSuccessChance = (currentLevel: number, charId: string, type: "weapon" | "armor") => {
+    const base = 0.95 - (currentLevel - 1) * 0.07;
+    const pityBonus = forgePity[forgeSlotKey(charId, type)] || 0;
+    return Math.min(0.99, Math.max(0.3, base) + pityBonus);
+  };
+
+  // Blacksmith Upgrade Gear (success rate + pity: gold always spent; pity guarantees success within a few fails)
   const upgradeGear = (charId: string, type: "weapon" | "armor") => {
     const member = party.find((m) => m.id === charId);
     if (!member) return;
@@ -508,9 +542,25 @@ export default function App() {
       return;
     }
 
+    // Gold is ALWAYS deducted (per locked design decision)
     const nextGold = gold - goldCost;
     setGold(nextGold);
 
+    const slotKey = forgeSlotKey(charId, type);
+    const successChance = forgeSuccessChance(currentLevel, charId, type);
+    const success = Math.random() < successChance;
+    const chancePct = Math.round(successChance * 100);
+
+    if (!success) {
+      // Failure: keep level, bump pity (+15% next attempt)
+      const nextForgePity = { ...forgePity, [slotKey]: (forgePity[slotKey] || 0) + 0.15 };
+      setForgePity(nextForgePity);
+      addLog(`💥 強化失敗！(成功率 ${chancePct}%) 裝備等級不變，但鍛造幸運值提升 (下次成功率 +15%)。已消耗 ${goldCost} 金幣。`, "system");
+      triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextForgePity);
+      return;
+    }
+
+    // Success: apply +1 level & stat bonus, reset pity
     const nextParty = party.map((m) => {
       if (m.id === charId) {
         if (type === "weapon") {
@@ -519,7 +569,7 @@ export default function App() {
             level: currentLevel + 1,
             bonus: m.equipment.weapon.bonus + 5
           };
-          addLog(`🔨 鐵匠敲打聲響起！【${m.name}】的武器「${nextWType.name}」已強化至 Lv.${nextWType.level}！(攻擊力 +5)`, "player_action");
+          addLog(`🔨 鐵匠敲打聲響起！(成功率 ${chancePct}%) 【${m.name}】的武器「${nextWType.name}」已強化至 Lv.${nextWType.level}！(攻擊力 +5)`, "player_action");
           return {
             ...m,
             atk: m.atk + 5,
@@ -531,7 +581,7 @@ export default function App() {
             level: currentLevel + 1,
             bonus: m.equipment.armor.bonus + 4
           };
-          addLog(`🔨 火花四濺！【${m.name}】的防具「${nextAType.name}」已強化至 Lv.${nextAType.level}！(防禦力 +3，最大生命 +15)`, "player_action");
+          addLog(`🔨 火花四濺！(成功率 ${chancePct}%) 【${m.name}】的防具「${nextAType.name}」已強化至 Lv.${nextAType.level}！(防禦力 +3，最大生命 +15)`, "player_action");
           return {
             ...m,
             def: m.def + 3,
@@ -546,16 +596,20 @@ export default function App() {
 
     setParty(nextParty);
 
+    // Reset pity for this slot on success
+    const nextForgePity = { ...forgePity, [slotKey]: 0 };
+    setForgePity(nextForgePity);
+
     const nextStats = {
       ...statistics,
       totalUpgradesDone: statistics.totalUpgradesDone + 1
     };
     setStatistics(nextStats);
 
-    // Progress Upgrade quest
+    // Progress Upgrade quest — count SUCCESSES only ("強化 5 次" intent)
     const nextQuests = checkQuestMilestone("upgrade", 1, quests);
 
-    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats);
+    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats, undefined, undefined, undefined, undefined, undefined, undefined, nextForgePity);
   };
 
   // 🌟 [Feature 1] Awaken Character (職業晉階 / 轉職覺醒)
@@ -926,6 +980,100 @@ export default function App() {
       "player_action"
     );
     triggerAutosave(gold, nextParty, quests, items, activeZoneId, statistics);
+  };
+
+  // --- Trading Post (Stage 3) ---
+  const buyMaterial = (matId: string) => {
+    const mat = MATERIALS[matId];
+    if (!mat) return;
+    const price = materialBuyPrice(mat.rarity);
+    if (gold < price) {
+      addLog(`❌ 金幣不足！購買【${mat.name}】需要 ${price} 金幣。`, "system");
+      return;
+    }
+    const nextGold = gold - price;
+    setGold(nextGold);
+    const nextMaterials = { ...materials, [matId]: (materials[matId] || 0) + 1 };
+    setMaterials(nextMaterials);
+    addLog(`🛒 交易所購入【${mat.emoji} ${mat.name} x1】，花費 ${price} 金幣。`, "player_action");
+    triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, nextMaterials);
+  };
+
+  const sellMaterial = (matId: string) => {
+    const mat = MATERIALS[matId];
+    if (!mat || (materials[matId] || 0) <= 0) return;
+    const price = materialSellPrice(mat.rarity);
+    const nextGold = gold + price;
+    setGold(nextGold);
+    const nextMaterials = { ...materials, [matId]: (materials[matId] || 0) - 1 };
+    setMaterials(nextMaterials);
+    addLog(`💱 交易所售出【${mat.emoji} ${mat.name} x1】，獲得 ${price} 金幣。`, "player_action");
+    triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, nextMaterials);
+  };
+
+  const sellGear = (gearUid: string) => {
+    const gear = gearInventory.find((g) => g.uid === gearUid);
+    if (!gear) return;
+    const equipped = party.some((m) => m.equipment[gear.slot].gearUid === gear.uid);
+    if (equipped) {
+      addLog(`⚠️ 該裝備正裝備在隊員身上，請先替換後再出售。`, "system");
+      return;
+    }
+    const value = gearSellValue(gear);
+    const nextGold = gold + value;
+    setGold(nextGold);
+    const nextGearInventory = gearInventory.filter((g) => g.uid !== gearUid);
+    setGearInventory(nextGearInventory);
+    addLog(`💱 交易所售出【${GEAR_RARITY_LABEL[gear.rarity]}】${gear.name}，獲得 ${value} 金幣。`, "player_action");
+    triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextGearInventory);
+  };
+
+  // Build a fresh daily stock of 3-5 random gear/potions (transient, regenerates each day).
+  const generateExchangeStock = (): Array<{ kind: "gear" | "item"; id: string; price: number; rarity?: string }> => {
+    const stock: Array<{ kind: "gear" | "item"; id: string; price: number; rarity?: string }> = [];
+    const gearIds = Object.keys(GEAR_TEMPLATES);
+    const potionIds = SHOP_ITEMS.map((s) => s.id);
+    const count = 3 + Math.floor(Math.random() * 3); // 3..5
+    for (let i = 0; i < count; i++) {
+      if (Math.random() < 0.5) {
+        const id = gearIds[Math.floor(Math.random() * gearIds.length)];
+        const t = GEAR_TEMPLATES[id];
+        stock.push({ kind: "gear", id, price: gearBuyPrice(t.rarity), rarity: t.rarity });
+      } else {
+        const id = potionIds[Math.floor(Math.random() * potionIds.length)];
+        const tmpl = SHOP_ITEMS.find((s) => s.id === id);
+        stock.push({ kind: "item", id, price: Math.round((tmpl?.price || 50) * 1.2) });
+      }
+    }
+    return stock;
+  };
+
+  const buyFromExchangeStock = (idx: number) => {
+    const entry = exchangeStock[idx];
+    if (!entry) return;
+    if (gold < entry.price) {
+      addLog(`❌ 金幣不足！購買此商品需要 ${entry.price} 金幣。`, "system");
+      return;
+    }
+    const nextGold = gold - entry.price;
+    setGold(nextGold);
+    setExchangeStock(exchangeStock.filter((_, i) => i !== idx));
+
+    if (entry.kind === "gear") {
+      const g = rollDroppedGear(entry.id);
+      if (g) {
+        const nextGearInventory = [...gearInventory, g];
+        setGearInventory(nextGearInventory);
+        addLog(`🛒 交易所購入裝備【${GEAR_RARITY_LABEL[g.rarity]}】${g.name}（⚔️+${g.atkBonus} 🛡️+${g.defBonus} ❤️+${g.hpBonus}）！`, "player_action");
+        triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextGearInventory);
+      }
+    } else {
+      const nextItems = items.map((it) => (it.id === entry.id ? { ...it, count: it.count + 1 } : it));
+      setItems(nextItems);
+      const tmpl = items.find((i) => i.id === entry.id);
+      addLog(`🛒 交易所購入【${tmpl?.emoji || ""} ${tmpl?.name || entry.id} x1】！`, "player_action");
+      triggerAutosave(nextGold, party, quests, nextItems, activeZoneId, statistics);
+    }
   };
 
   // --- Combat Engine Logic ---
@@ -2439,8 +2587,8 @@ export default function App() {
               <div className="space-y-4">
                 
                 {/* Visual command selection tab group */}
-                <div className="grid grid-cols-4 gap-1.5 font-mono text-center">
-                  
+                <div className="grid grid-cols-5 gap-1.5 font-mono text-center">
+
                   <button
                     id="btn-tab-explore"
                     onClick={() => { setActiveTab("explore"); setItemUsageTargetSelector({ isOpen: false, item: null }); }}
@@ -2491,6 +2639,19 @@ export default function App() {
                   >
                     <Scroll className="w-4 h-4" />
                     <span>公會公告</span>
+                  </button>
+
+                  <button
+                    id="btn-tab-exchange"
+                    onClick={() => { setActiveTab("exchange"); setItemUsageTargetSelector({ isOpen: false, item: null }); }}
+                    className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      activeTab === "exchange"
+                        ? "bg-yellow-950/40 border-yellow-500 text-yellow-400 font-bold shadow-lg shadow-yellow-950"
+                        : "bg-slate-950 border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Coins className="w-4 h-4" />
+                    <span>星區交易所</span>
                   </button>
 
                 </div>
@@ -2697,6 +2858,109 @@ export default function App() {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB WINDOW COMPONENT: TRADING POST (EXCHANGE) */}
+                {activeTab === "exchange" && (
+                  <div className="space-y-3 font-mono">
+                    <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                      <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-yellow-400" /> 星區交易所 (Trading Post)
+                      </p>
+                      買賣宇宙材料、出售掉落裝備。每日刷新限定特賣（每次休息 / 紮營更新）。
+                    </div>
+
+                    {/* Daily limited stock */}
+                    <div className="p-2.5 bg-slate-900 border border-yellow-500/20 rounded-xl space-y-2">
+                      <div className="text-[11px] font-bold text-yellow-400 uppercase">🪙 今日限定特賣 (Day {daysPassed})</div>
+                      {exchangeStock.length === 0 ? (
+                        <div className="text-[10px] text-slate-500">今日特賣已售罄，明日再來！</div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {exchangeStock.map((entry, i) => {
+                            const tmpl = entry.kind === "gear" ? GEAR_TEMPLATES[entry.id] : items.find((it) => it.id === entry.id);
+                            const label = entry.kind === "gear" ? GEAR_TEMPLATES[entry.id]?.name : `${(tmpl as Item)?.emoji || ""} ${(tmpl as Item)?.name || entry.id}`;
+                            return (
+                              <div key={i} className="flex items-center justify-between bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5">
+                                <span className="text-[11px] text-slate-200">
+                                  {entry.kind === "gear" ? "🛡️" : "🧪"} {label}
+                                  {entry.rarity && <span className="ml-1 text-[9px] text-slate-400">[{GEAR_RARITY_LABEL[entry.rarity as GearRarity]}]</span>}
+                                </span>
+                                <button
+                                  onClick={() => buyFromExchangeStock(i)}
+                                  disabled={gold < entry.price}
+                                  className={`text-[10px] px-2 py-1 rounded border font-bold ${gold < entry.price ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-slate-950 cursor-pointer"}`}
+                                >
+                                  {entry.price} ✨
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Materials buy / sell */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-bold text-slate-300 uppercase pt-1">💎 宇宙材料 (買 ×1.5 / 賣 ×0.5)</div>
+                      {Object.entries(MATERIALS).map(([id, mat]) => {
+                        const owned = materials[id] || 0;
+                        const buyP = materialBuyPrice(mat.rarity);
+                        const sellP = materialSellPrice(mat.rarity);
+                        return (
+                          <div key={id} className="flex items-center justify-between bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5">
+                            <span className="text-[11px] text-slate-200 flex items-center gap-1">
+                              {mat.emoji} {mat.name}
+                              <span className="text-[9px] text-slate-500">x{owned}</span>
+                            </span>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => buyMaterial(id)}
+                                disabled={gold < buyP}
+                                className={`text-[10px] px-2 py-1 rounded border font-bold ${gold < buyP ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-emerald-700 border-emerald-800 hover:bg-emerald-600 text-white cursor-pointer"}`}
+                              >
+                                買 {buyP}
+                              </button>
+                              <button
+                                onClick={() => sellMaterial(id)}
+                                disabled={owned <= 0}
+                                className={`text-[10px] px-2 py-1 rounded border font-bold ${owned <= 0 ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
+                              >
+                                賣 {sellP}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Gear sell */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-bold text-slate-300 uppercase pt-1">🛡️ 出售掉落裝備</div>
+                      {gearInventory.length === 0 ? (
+                        <div className="text-[10px] text-slate-500">裝備庫是空的，去狩獵掉落裝備吧！</div>
+                      ) : (
+                        gearInventory.map((g) => {
+                          const equipped = party.some((m) => m.equipment[g.slot].gearUid === g.uid);
+                          return (
+                            <div key={g.uid} className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 border ${GEAR_RARITY_COLOR[g.rarity]}`}>
+                              <span className="text-[11px] flex items-center gap-1">
+                                {g.slot === "weapon" ? "⚔️" : "🛡️"} {g.name}
+                                <span className="text-[9px] opacity-70">[{GEAR_RARITY_LABEL[g.rarity]}]</span>
+                              </span>
+                              <button
+                                onClick={() => sellGear(g.uid)}
+                                disabled={equipped}
+                                className={`text-[10px] px-2 py-1 rounded border font-bold ${equipped ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
+                              >
+                                {equipped ? "裝備中" : `賣 ${gearSellValue(g)} ✨`}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}
@@ -3435,6 +3699,8 @@ export default function App() {
                     const isFainted = com.hp <= 0 || com.isDead;
                     const weaponCost = com.equipment.weapon.level * 25;
                     const armorCost = com.equipment.armor.level * 25;
+                    const weaponChancePct = Math.round(forgeSuccessChance(com.equipment.weapon.level, com.id, "weapon") * 100);
+                    const armorChancePct = Math.round(forgeSuccessChance(com.equipment.armor.level, com.id, "armor") * 100);
 
                     return (
                       <div
@@ -3547,6 +3813,7 @@ export default function App() {
                             >
                               <span className="font-semibold text-[11px]">🔨 強化武器</span>
                               <span className="text-[9px] text-slate-500">Lvl.{com.equipment.weapon.level}➔{com.equipment.weapon.level + 1} ({weaponCost}金幣)</span>
+                              <span className={`text-[9px] font-bold ${weaponChancePct >= 70 ? "text-emerald-400" : weaponChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {weaponChancePct}%</span>
                             </button>
 
                             <button
@@ -3560,6 +3827,7 @@ export default function App() {
                             >
                               <span className="font-semibold text-[11px]">🛡️ 強化護甲</span>
                               <span className="text-[9px] text-slate-500">Lvl.{com.equipment.armor.level}➔{com.equipment.armor.level + 1} ({armorCost}金幣)</span>
+                              <span className={`text-[9px] font-bold ${armorChancePct >= 70 ? "text-emerald-400" : armorChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {armorChancePct}%</span>
                             </button>
                           </div>
                         )}

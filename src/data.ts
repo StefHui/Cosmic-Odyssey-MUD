@@ -238,6 +238,36 @@ function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// --- Trading post pricing (Stage 3) ---
+export const MATERIAL_BASE_PRICE: Record<"common" | "rare" | "epic", number> = {
+  common: 20,
+  rare: 60,
+  epic: 150
+};
+
+// Buy = base ×1.5, Sell = base ×0.5
+export function materialBuyPrice(rarity: "common" | "rare" | "epic"): number {
+  return Math.ceil(MATERIAL_BASE_PRICE[rarity] * 1.5);
+}
+export function materialSellPrice(rarity: "common" | "rare" | "epic"): number {
+  return Math.floor(MATERIAL_BASE_PRICE[rarity] * 0.5);
+}
+
+const GEAR_RARITY_BASE_VALUE: Record<GearRarity, number> = {
+  common: 30,
+  rare: 90,
+  epic: 220,
+  legendary: 500
+};
+
+// Sell value scales with rarity and gear level.
+export function gearSellValue(gear: DroppedGear): number {
+  return Math.round(GEAR_RARITY_BASE_VALUE[gear.rarity] * (1 + (gear.level - 1) * 0.5));
+}
+export function gearBuyPrice(rarity: GearRarity): number {
+  return Math.round(GEAR_RARITY_BASE_VALUE[rarity] * 1.5);
+}
+
 // Roll a concrete DroppedGear instance from a template id.
 export function rollDroppedGear(templateId: string): DroppedGear | null {
   const t = GEAR_TEMPLATES[templateId];
