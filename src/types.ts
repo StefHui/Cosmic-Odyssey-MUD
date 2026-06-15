@@ -89,6 +89,7 @@ export interface Monster {
   isDead: boolean;
   tier: MonsterTier;
   dropTable: DropEntry[];
+  templateId: string; // key into MONSTER_TEMPLATES (for slay-specific quest tracking)
 }
 
 // --- Gear drops (Stage 2): lightweight inventory of equippable/sellable gear ---
@@ -122,12 +123,21 @@ export interface Quest {
   id: string;
   title: string;
   description: string;
-  targetType: "experience" | "slay" | "gold" | "upgrade";
+  targetType: "experience" | "slay" | "gold" | "upgrade" | "collect" | "slay_specific";
   targetValue: number;
   currentValue: number;
   rewardGold: number;
   rewardExp: number;
   status: "active" | "ready" | "completed";
+  // --- Stage 4 story fields ---
+  kind: "main" | "side" | "daily";
+  chapter?: number;                 // main: chapter ordering; side: min chapter to unlock
+  prerequisiteQuestId?: string;     // main-line unlock chain
+  storyBefore?: string;             // narrative shown when offered
+  storyAfter?: string;              // narrative shown on completion
+  isUnlocked?: boolean;             // gated quests start locked (undefined = unlocked)
+  targetMonsterId?: string;         // for slay_specific
+  targetMaterialId?: string;        // for collect
 }
 
 export interface Zone {
@@ -218,6 +228,9 @@ export interface GameSave {
   decryptedLogIds?: string[]; // decrypted story logs
   gearInventory?: DroppedGear[]; // dropped gear (Stage 2)
   forgePity?: Record<string, number>; // per-slot accumulated forge luck (Stage 3)
+  completedQuestIds?: string[];  // Stage 4: completed quest ids
+  currentChapter?: number;       // Stage 4: main-line progress
+  dailyQuestDate?: number;       // Stage 4: daysPassed when dailies last refreshed
   statistics: {
     totalGoldGained: number;
     totalMonstersSlain: number;

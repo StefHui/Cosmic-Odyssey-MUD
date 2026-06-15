@@ -963,49 +963,165 @@ export const RANDOM_EVENTS: SpaceEvent[] = [
   }
 ];
 
-export const INITIAL_QUESTS: Quest[] = [
+// ===== Stage 4: Story — Main quest line, side & daily pools, chapter gating =====
+
+// Main quest line: a chapter chain uncovering why the前文明 "崩塌", each unlocking the next.
+export const MAIN_QUESTS: Quest[] = [
   {
-    id: "quest_slay_slimes",
-    title: "風草地皮清掃專案",
-    description: "前往「風草神殿祕境」消滅黏液怪 5 隻，清除覆蓋在前哨站艙門的太空雜草菌體。",
-    targetType: "slay",
-    targetValue: 5,
-    currentValue: 0,
-    rewardGold: 100,
-    rewardExp: 100,
-    status: "active"
+    id: "mq_ch1", kind: "main", chapter: 1,
+    title: "【主線 Ch.1】甦醒的開拓信標",
+    description: "前往「風草神殿祕境」掃蕩 5 隻魔物，喚醒沉睡的前哨站信標，接收第一道殘缺的崩塌訊息。",
+    targetType: "slay", targetValue: 5, currentValue: 0, rewardGold: 120, rewardExp: 150, status: "active",
+    isUnlocked: true,
+    storyBefore: "信標自崩塌之夜便沉默至今。雷達捕捉到風草神殿深處有微弱的求救波形……",
+    storyAfter: "信標重啟，吐出一段加密日誌：『Demeter-9 播種引擎失控，是崩塌的起點之一。』線索指向冰封深淵。"
   },
   {
-    id: "quest_upgrade_gears",
-    title: "工欲善其事",
-    description: "科技是第一生產力！在旺角鐵匠鋪對任何出戰隊伍的「武器」或「防具」進行累計 5 次強化升級。",
-    targetType: "upgrade",
-    targetValue: 5,
-    currentValue: 0,
-    rewardGold: 140,
-    rewardExp: 120,
-    status: "active"
+    id: "mq_ch2", kind: "main", chapter: 2, prerequisiteQuestId: "mq_ch1",
+    title: "【主線 Ch.2】重水深淵的低語",
+    description: "深入「星夜冰封洞穴」，採集 3 枚超導重水結晶，重建 Aegir 聯合體的冷卻數據。",
+    targetType: "collect", targetMaterialId: "heavy_water_crystal", targetValue: 3, currentValue: 0,
+    rewardGold: 180, rewardExp: 220, status: "active", isUnlocked: false,
+    storyBefore: "Aegir 重工業聯合體的冷卻基地在崩塌中急凍封存，唯有重水結晶能解讀其最後的運算。",
+    storyAfter: "結晶重組出一句警告：『熱核裂變爐將再臨界。』熔岩之核正在甦醒。"
   },
   {
-    id: "quest_gold_rush",
-    title: "淘金計畫",
-    description: "累積獲得 500 金幣。在這個冷酷的星空中，厚實的錢包將是你最溫暖的靠山。",
-    targetType: "gold",
-    targetValue: 500,
-    currentValue: 0,
-    rewardGold: 200,
-    rewardExp: 150,
-    status: "active"
+    id: "mq_ch3", kind: "main", chapter: 3, prerequisiteQuestId: "mq_ch2",
+    title: "【主線 Ch.3】沸騰核心的試煉",
+    description: "在「熔岩熱能之核」討伐 3 隻過熱熔岩能量蟹，為失控的裂變爐降溫。",
+    targetType: "slay_specific", targetMonsterId: "magma_crab", targetValue: 3, currentValue: 0,
+    rewardGold: 240, rewardExp: 300, status: "active", isUnlocked: false,
+    storyBefore: "爐芯燃燒百年不滅，熔岩生物吸收其能量再生。必須先肅清牠們才能接近核心。",
+    storyAfter: "爐溫漸降，控制台浮現坐標——指向廢棄電網中樞的雷霆遺骸。"
   },
   {
-    id: "quest_reach_exp",
-    title: "實化跃升：千錘百鍊",
-    description: "累計在群星冒險中，贏得 600 點戰鬥經驗值 (EXP) 以證明隊伍的戰術適應性。",
-    targetType: "experience",
-    targetValue: 600,
-    currentValue: 0,
-    rewardGold: 250,
-    rewardExp: 200,
-    status: "active"
+    id: "mq_ch4", kind: "main", chapter: 4, prerequisiteQuestId: "mq_ch3",
+    title: "【主線 Ch.4】雷網中的亡魂",
+    description: "於「雷爆廢棄電網」殲滅 3 隻星野幽藍雷電死靈，奪回失控電站的主控權。",
+    targetType: "slay_specific", targetMonsterId: "electro_wraith", targetValue: 3, currentValue: 0,
+    rewardGold: 320, rewardExp: 400, status: "active", isUnlocked: false,
+    storyBefore: "電站融毀後，工程師的意志等離子化為幽魂，死守著崩塌真相的最後一塊拼圖。",
+    storyAfter: "幽魂消散前留下殘響：『鑰匙，在引力岩洲的奇點之中。』"
+  },
+  {
+    id: "mq_ch5", kind: "main", chapter: 5, prerequisiteQuestId: "mq_ch4",
+    title: "【主線 Ch.5】奇點的鑰匙",
+    description: "在「失落引力岩洲」收集 3 枚星雲熔熱核心，組裝開啟奇點封印的鑰匙。",
+    targetType: "collect", targetMaterialId: "nebula_core", targetValue: 3, currentValue: 0,
+    rewardGold: 420, rewardExp: 520, status: "active", isUnlocked: false,
+    storyBefore: "星雲核心是平衡這片星軌的能量錨，集齊三枚方能撬動沉睡的終型神兵。",
+    storyAfter: "鑰匙成形，封印鬆動——終型巨神兵睜開了那雙古老的雙眼。"
+  },
+  {
+    id: "mq_ch6", kind: "main", chapter: 6, prerequisiteQuestId: "mq_ch5",
+    title: "【主線 Ch.6】引力崩塌終型巨神兵",
+    description: "擊敗「失落引力岩洲」的域主——引力崩塌終型巨神兵，終結這場跨越世代的崩塌。",
+    targetType: "slay_specific", targetMonsterId: "gravity_sentinel", targetValue: 1, currentValue: 0,
+    rewardGold: 600, rewardExp: 800, status: "active", isUnlocked: false,
+    storyBefore: "它將一切外來信號視為入侵。要終結崩塌，必先擊碎這台失控的平衡錨。",
+    storyAfter: "巨神兵停止運轉，但崩塌的真正主謀仍潛伏於最深的星夜……"
+  },
+  {
+    id: "mq_ch7", kind: "main", chapter: 7, prerequisiteQuestId: "mq_ch6",
+    title: "【主線 終章】星墓終焉",
+    description: "在最深的星夜，於「失落引力岩洲」討伐夜域主——星墓終焉巨像，揭開崩塌的最終真相。",
+    targetType: "slay_specific", targetMonsterId: "stellar_tomb_colossus_night", targetValue: 1, currentValue: 0,
+    rewardGold: 1000, rewardExp: 1500, status: "active", isUnlocked: false,
+    storyBefore: "唯有星夜，巨像才會甦醒。它埋葬著前文明的全部記憶與罪責。",
+    storyAfter: "巨像崩解的剎那，星空重新流轉。開拓者終於明白：崩塌並非終點，而是新紀元的序章。🌌"
   }
 ];
+
+// Side quests: unlocked by reaching a chapter; varied target types incl collect / slay-specific.
+export const SIDE_QUEST_POOL: Quest[] = [
+  {
+    id: "sq_upgrade_gears", kind: "side", chapter: 1,
+    title: "【支線】工欲善其事",
+    description: "在鐵匠鋪對武器或防具累計成功強化 5 次。",
+    targetType: "upgrade", targetValue: 5, currentValue: 0, rewardGold: 140, rewardExp: 120, status: "active"
+  },
+  {
+    id: "sq_gold_rush", kind: "side", chapter: 1,
+    title: "【支線】淘金計畫",
+    description: "累積獲得 500 金幣，厚實的錢包是冷酷星空中最溫暖的靠山。",
+    targetType: "gold", targetValue: 500, currentValue: 0, rewardGold: 200, rewardExp: 150, status: "active"
+  },
+  {
+    id: "sq_collect_plasma", kind: "side", chapter: 3,
+    title: "【支線】等離子囤積商",
+    description: "收集 5 枚等離子聚能電池，黑市行商開出了好價錢。",
+    targetType: "collect", targetMaterialId: "plasma_battery", targetValue: 5, currentValue: 0,
+    rewardGold: 260, rewardExp: 200, status: "active"
+  },
+  {
+    id: "sq_slay_drake", kind: "side", chapter: 3,
+    title: "【支線】獵犬剋星",
+    description: "討伐 3 隻狂暴核裂融核噴噴犬，清掃熔岩帶的高危掠食者。",
+    targetType: "slay_specific", targetMonsterId: "fire_drake", targetValue: 3, currentValue: 0,
+    rewardGold: 300, rewardExp: 260, status: "active"
+  },
+  {
+    id: "sq_reach_exp", kind: "side", chapter: 4,
+    title: "【支線】千錘百鍊",
+    description: "累計贏得 1200 點戰鬥經驗值 (EXP)，磨礪隊伍的戰術適應性。",
+    targetType: "experience", targetValue: 1200, currentValue: 0, rewardGold: 350, rewardExp: 300, status: "active"
+  }
+];
+
+// Daily pool: small slay/collect tasks; 2-3 refresh per in-game day with progress reset.
+export const DAILY_QUEST_POOL: Quest[] = [
+  {
+    id: "dq_slay", kind: "daily",
+    title: "【每日】例行清剿",
+    description: "今日討伐任意 4 隻深空魔物。",
+    targetType: "slay", targetValue: 4, currentValue: 0, rewardGold: 90, rewardExp: 80, status: "active"
+  },
+  {
+    id: "dq_collect_stardust", kind: "daily",
+    title: "【每日】星塵收集",
+    description: "今日收集 2 枚星塵發光碎片。",
+    targetType: "collect", targetMaterialId: "stardust_shard", targetValue: 2, currentValue: 0,
+    rewardGold: 80, rewardExp: 70, status: "active"
+  },
+  {
+    id: "dq_gold", kind: "daily",
+    title: "【每日】小額創收",
+    description: "今日累積獲得 150 金幣。",
+    targetType: "gold", targetValue: 150, currentValue: 0, rewardGold: 110, rewardExp: 60, status: "active"
+  },
+  {
+    id: "dq_exp", kind: "daily",
+    title: "【每日】實戰訓練",
+    description: "今日累積獲得 200 點戰鬥經驗值 (EXP)。",
+    targetType: "experience", targetValue: 200, currentValue: 0, rewardGold: 100, rewardExp: 90, status: "active"
+  }
+];
+
+// Decide which quests are unlocked given main-line progress.
+export function unlockEligibleQuests(list: Quest[], currentChapter: number, completedIds: string[]): Quest[] {
+  return list.map((q) => {
+    if (q.status === "completed") return q;
+    let unlocked = true;
+    if (q.kind === "main") {
+      unlocked = !q.prerequisiteQuestId || completedIds.includes(q.prerequisiteQuestId);
+    } else if (q.kind === "side") {
+      unlocked = currentChapter >= (q.chapter ?? 1);
+    }
+    return { ...q, isUnlocked: unlocked };
+  });
+}
+
+// Pick fresh daily quest instances for a given day (progress reset, unique per-day id suffix).
+export function refreshDailyQuests(day: number, count = 3): Quest[] {
+  const shuffled = [...DAILY_QUEST_POOL].sort(() => Math.random() - 0.5).slice(0, count);
+  return shuffled.map((q) => ({ ...q, id: `${q.id}_d${day}`, currentValue: 0, status: "active" as const, isUnlocked: true }));
+}
+
+// Build the starting quest set: all main + side (gated to ch.1) + today's dailies.
+export function buildInitialQuests(day: number): Quest[] {
+  const base = unlockEligibleQuests([...MAIN_QUESTS, ...SIDE_QUEST_POOL], 1, []);
+  return [...base, ...refreshDailyQuests(day)];
+}
+
+// Backward-compat export (old code imported INITIAL_QUESTS).
+export const INITIAL_QUESTS: Quest[] = buildInitialQuests(1);

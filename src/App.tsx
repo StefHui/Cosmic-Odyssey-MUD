@@ -68,6 +68,8 @@ import {
   MONSTER_TEMPLATES,
   ZONES,
   INITIAL_QUESTS,
+  unlockEligibleQuests,
+  refreshDailyQuests,
   MATERIALS,
   ARTIFACTS,
   ACHIEVEMENTS,
@@ -92,13 +94,12 @@ interface LoreRecord {
   title: string;
   codename: string;
   unlockedAtLv: number;
+  unlockedAtChapter?: number; // Stage 4: gate by main-quest chapter instead of level
   rewardText: string;
   description: string;
   secretReveal: string;
-  getReward: (
-    setGold: React.Dispatch<React.SetStateAction<number>>,
-    setMaterials: React.Dispatch<React.SetStateAction<Record<string, number>>>
-  ) => void;
+  // Returns reward deltas so the caller can apply + persist them synchronously (no stale save).
+  getReward: () => { gold: number; materials: Record<string, number> };
 }
 
 const LORE_RECORDS: LoreRecord[] = [
@@ -110,10 +111,7 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "星塵碎片 x3 & 100 能量金券",
     description: "風草地衣與異形黏液怪原本非原生星區生物，而是前文明生態播種引擎「Demeter-9」在大崩塌前的試驗殘存物。這些植株與孢子感應過往船隻的熱量波動與重力，進化出了高頻自衛射擊尖刺藤蔓。它們形成的生長晶能，在屬性循環中呈現完美的草屬性特徵，被高溫離子熱能（Fire）天然剋制。",
     secretReveal: "💡 戰術揭秘：使用「火 (Fire)」（如艾倫的超熱能離子大劍斬）攻擊「草 (Plant)」屬性魔物，可爆發 1.5 倍臨界暴擊傷害！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 100);
-      setMaterials(m => ({ ...m, stardust_shard: (m.stardust_shard || 0) + 3 }));
-    }
+    getReward: () => ({ gold: 100, materials: { stardust_shard: 3 } })
   },
   {
     id: "lore_frost_cave",
@@ -123,10 +121,7 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "超導重水結晶 x2 & 150 能量金券",
     description: "星夜冰封洞穴曾是前星際文明「Aegir」重工業聯合體的量子冷卻基地。在恆星重核聚變失衡爆發後，急速冷卻的冷阱使得重氫與重水汽瞬間凝結成硬度超越鈦合金的超導重水。深水鱟吞噬了這些超導重水微粒，外殼發生量子畸變，對常規高熱不著痕跡，唯有對離子強電（Electric）毫受抵抗力。",
     secretReveal: "💡 戰術揭秘：冰洞的水屬性魔物最畏懼「電 (Electric)」能量。派遣雷爆巫師麗娜（Lina）釋放「超離子風暴」可造成毀滅性雙倍打擊！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 150);
-      setMaterials(m => ({ ...m, heavy_water_crystal: (m.heavy_water_crystal || 0) + 2 }));
-    }
+    getReward: () => ({ gold: 150, materials: { heavy_water_crystal: 2 } })
   },
   {
     id: "lore_volcano_core",
@@ -136,10 +131,7 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "等離子聚能電池 x2 & 200 能量金券",
     description: "熔岩熱能之核並非天然火山，而是前哨航站墜毀的核聚變熱核裂變爐。爐芯燃燒百年不滅，高能矽酸鹽和熔化的超導離子形成了流動熔岩。高危熱熔岩蟹體背高溫極化核心，在極炎中反而獲取源源不斷的聚變再生盾。唯有使用低溫重水或冰霜能量（Water）才能讓其分子結構硬化皸裂。",
     secretReveal: "💡 戰術揭秘：火屬性魔物擁有瘋狂的爆發性破壞力，但遇到「水 (Water)」屬性的潮汐治癒或水之防護時會遭到 0.75x 傷害削弱，且水屬性能造成極限高傷！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 200);
-      setMaterials(m => ({ ...m, plasma_battery: (m.plasma_battery || 0) + 2 }));
-    }
+    getReward: () => ({ gold: 200, materials: { plasma_battery: 2 } })
   },
   {
     id: "lore_gravity_collapse",
@@ -149,10 +141,29 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "星雲熔熱核心 x1 & 300 能量金券",
     description: "失落引力岩洲的碎石懸浮機制源自「引力崩塌終型巨神兵」體內的主動重粒子奇點。此奇點是古文明用來固定這片重星軌道的平衡錨。由於控制程序混亂，巨神兵將一切外來信號視為入侵威脅。其磁場密度極大、堅如鐵石（Earth），然而生命藤蔓與孢子根系（Plant）的有機纖維能透過其磁隙深入其核心回路，造成瓦解。",
     secretReveal: "💡 戰術揭秘：土（Earth）屬性魔物擁有極高的防禦係數。在小隊中安排「草 (Plant)」屬性隊友（如加洛 Kael）釋放致命荊棘，能穿透其厚重鐵甲！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 300);
-      setMaterials(m => ({ ...m, nebula_core: (m.nebula_core || 0) + 1 }));
-    }
+    getReward: () => ({ gold: 300, materials: { nebula_core: 1 } })
+  },
+  {
+    id: "lore_collapse_truth",
+    title: "【崩塌真相：平衡錨的背叛】",
+    codename: "SIGNAL-CORE-001",
+    unlockedAtLv: 1,
+    unlockedAtChapter: 6,
+    rewardText: "星雲熔熱核心 x2 & 500 能量金券",
+    description: "綜合各星區的殘缺日誌，真相逐漸浮現：所謂「大崩塌」並非天災，而是前文明為了維繫星軌平衡，將意志注入終型神兵作為「平衡錨」。當其中一座錨的控制程序失控，連鎖反應撕裂了整個星系的引力網——播種引擎、冷卻基地、裂變爐、電站，皆在那一夜接連崩潰。",
+    secretReveal: "💡 揭密：擊敗引力崩塌終型巨神兵只是表象，真正的源頭仍沉睡於最深的星夜之中。",
+    getReward: () => ({ gold: 500, materials: { nebula_core: 2 } })
+  },
+  {
+    id: "lore_new_dawn",
+    title: "【新紀元：星墓之後】",
+    codename: "SIGNAL-CORE-OMEGA",
+    unlockedAtLv: 1,
+    unlockedAtChapter: 8,
+    rewardText: "星雲熔熱核心 x3 & 1000 能量金券",
+    description: "星墓終焉巨像崩解後，潛伏的最終意志隨之消散。被撕裂的引力網開始自我修復，沉睡的星區重新流轉光華。開拓者站在星墓的廢墟之上，手握前文明的全部記憶——崩塌的罪責、求生的掙扎、以及對重生的渴望。這一次，平衡將由活著的人親手守護。",
+    secretReveal: "💡 終幕：崩塌並非終點，而是新紀元的序章。星空，重新屬於開拓者。🌌",
+    getReward: () => ({ gold: 1000, materials: { nebula_core: 3 } })
   }
 ];
 
@@ -189,6 +200,11 @@ export default function App() {
   // 🏪 Trading-post daily stock (transient — not persisted; regenerates each in-game day)
   const [exchangeStock, setExchangeStock] = useState<Array<{ kind: "gear" | "item"; id: string; price: number; rarity?: string }>>([]);
   const [exchangeStockDay, setExchangeStockDay] = useState<number>(-1);
+  // 📖 Story progress (Stage 4)
+  const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
+  const [currentChapter, setCurrentChapter] = useState<number>(1);
+  const [dailyQuestDate, setDailyQuestDate] = useState<number>(1);
+  const [questKindTab, setQuestKindTab] = useState<"main" | "side" | "daily">("main");
 
   // --- UI/UX Navigation ---
   const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests" | "exchange">("explore");
@@ -293,7 +309,9 @@ export default function App() {
         // merge-defaults for fields added in saveVersion 1 (old saves lack timeSlotIndex)
         if (parsed.timeSlotIndex !== undefined) setTimeSlotIndex(parsed.timeSlotIndex);
         if (parsed.party && parsed.party.length > 0) setParty(parsed.party);
-        if (parsed.quests) setQuests(parsed.quests);
+        // Only restore quests from a Stage-4-era save (they carry `kind`); legacy quest
+        // arrays are dropped so the new main/side/daily board isn't left empty.
+        if (parsed.quests && parsed.quests.some((q) => (q as Quest).kind)) setQuests(parsed.quests);
         if (parsed.items) {
           // Sync quantities with existing templates to match fresh names/descriptions
           const updatedItems = SHOP_ITEMS.map(template => {
@@ -327,6 +345,9 @@ export default function App() {
         if (parsed.forgePity) {
           setForgePity(parsed.forgePity);
         }
+        if (parsed.completedQuestIds) setCompletedQuestIds(parsed.completedQuestIds);
+        if (parsed.currentChapter !== undefined) setCurrentChapter(parsed.currentChapter);
+        if (parsed.dailyQuestDate !== undefined) setDailyQuestDate(parsed.dailyQuestDate);
 
         addLog("📂 檢測到已存檔的高能程式波形，已成功逆向載入隊伍進度！", "system");
       }
@@ -351,6 +372,16 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [daysPassed]);
 
+  // --- Daily quest refresh: once per in-game day, swap in fresh dailies with reset progress ---
+  useEffect(() => {
+    if (daysPassed > dailyQuestDate) {
+      setQuests((prev) => [...prev.filter((q) => q.kind !== "daily"), ...refreshDailyQuests(daysPassed)]);
+      setDailyQuestDate(daysPassed);
+      addLog("🌅 新的一天！每日開拓指令已刷新。", "system");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daysPassed]);
+
   // --- Safe Saving Function (Autosave Toast) ---
   const triggerAutosave = (
     currentGold: number,
@@ -366,7 +397,10 @@ export default function App() {
     currentDaysPassed?: number,
     currentTimeSlotIndex?: number,
     currentGearInventory?: DroppedGear[],
-    currentForgePity?: Record<string, number>
+    currentForgePity?: Record<string, number>,
+    currentCompletedQuestIds?: string[],
+    currentChapterVal?: number,
+    currentDailyQuestDate?: number
   ) => {
     const data: GameSave = {
       saveVersion: 1,
@@ -383,6 +417,9 @@ export default function App() {
       decryptedLogIds: currentDecryptedLogs || decryptedLogIds,
       gearInventory: currentGearInventory || gearInventory,
       forgePity: currentForgePity || forgePity,
+      completedQuestIds: currentCompletedQuestIds || completedQuestIds,
+      currentChapter: currentChapterVal ?? currentChapter,
+      dailyQuestDate: currentDailyQuestDate ?? dailyQuestDate,
       unlockedCompanions: [],
       statistics: currentStats
     };
@@ -437,6 +474,9 @@ export default function App() {
     setDecryptedLogIds([]);
     setGearInventory([]);
     setForgePity({});
+    setCompletedQuestIds([]);
+    setCurrentChapter(1);
+    setDailyQuestDate(1);
     setActiveZoneId("zone_1");
     setStatistics({
       totalGoldGained: 150,
@@ -452,15 +492,19 @@ export default function App() {
 
   // --- Check and progress Quests ---
   const checkQuestMilestone = (
-    type: "experience" | "slay" | "gold" | "upgrade",
+    type: Quest["targetType"],
     valueToAdd: number,
-    updatedQuestsState?: Quest[]
+    updatedQuestsState?: Quest[],
+    specificId?: string
   ) => {
     const activeQuests = updatedQuestsState || quests;
     let modified = false;
 
     const newQuests = activeQuests.map((q) => {
-      if (q.status === "active" && q.targetType === type) {
+      if (q.status === "active" && q.isUnlocked !== false && q.targetType === type) {
+        // Specific-target quests only progress on a matching id
+        if (type === "collect" && q.targetMaterialId !== specificId) return q;
+        if (type === "slay_specific" && q.targetMonsterId !== specificId) return q;
         const nextValue = Math.min(q.targetValue, q.currentValue + valueToAdd);
         if (nextValue !== q.currentValue) {
           modified = true;
@@ -486,7 +530,7 @@ export default function App() {
     const quest = quests.find((q) => q.id === questId);
     if (!quest || quest.status !== "ready") return;
 
-    const nextQuests = quests.map((q) => {
+    let nextQuests = quests.map((q) => {
       if (q.id === questId) {
         return { ...q, status: "completed" as const };
       }
@@ -505,8 +549,24 @@ export default function App() {
       }
       return leveled;
     });
-
     setParty(nextParty);
+
+    const nextCompleted = [...completedQuestIds, questId];
+    setCompletedQuestIds(nextCompleted);
+
+    // Main-line: advance chapter, reveal story, unlock the next chapter + eligible side quests.
+    let nextChapter = currentChapter;
+    if (quest.kind === "main") {
+      nextChapter = currentChapter + 1;
+      setCurrentChapter(nextChapter);
+      if (quest.storyAfter) {
+        addLog(`📖 ${quest.title} —— ${quest.storyAfter}`, "event");
+      }
+      addLog(`🌠 主線推進！章節進度提升至 第 ${nextChapter} 章。`, "achievement");
+    }
+
+    // Recompute unlock state for the (post-completion) quest list.
+    nextQuests = unlockEligibleQuests(nextQuests, nextChapter, nextCompleted);
     setQuests(nextQuests);
 
     const nextStats = {
@@ -515,7 +575,11 @@ export default function App() {
     };
     setStatistics(nextStats);
 
-    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats);
+    triggerAutosave(
+      nextGold, nextParty, nextQuests, items, activeZoneId, nextStats,
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      nextCompleted, nextChapter
+    );
   };
 
   // --- Town Actions ---
@@ -1114,13 +1178,12 @@ export default function App() {
 
     // Spawn picker: filter by time-of-day, then weight by tier (normal 70 / elite 25 / boss 5).
     const pool = zone.monsters
-      .map((name) => MONSTER_TEMPLATES[name])
-      .filter((t) => t && t.timeAvailability.includes(currentTimeOfDay));
+      .filter((name) => MONSTER_TEMPLATES[name] && MONSTER_TEMPLATES[name].timeAvailability.includes(currentTimeOfDay));
 
-    const candidates = pool.length > 0 ? pool : [MONSTER_TEMPLATES.slime_plant];
+    const candidateKeys = pool.length > 0 ? pool : ["slime_plant"];
 
-    const byTier: Record<MonsterTier, MonsterTemplate[]> = { normal: [], elite: [], boss: [] };
-    candidates.forEach((t) => byTier[t.tier].push(t));
+    const byTier: Record<MonsterTier, string[]> = { normal: [], elite: [], boss: [] };
+    candidateKeys.forEach((key) => byTier[MONSTER_TEMPLATES[key].tier].push(key));
 
     const tierWeights: Array<[MonsterTier, number]> = [];
     if (byTier.normal.length) tierWeights.push(["normal", 70]);
@@ -1135,7 +1198,8 @@ export default function App() {
       roll -= w;
     }
     const bucket = byTier[chosenTier];
-    const template = bucket[Math.floor(Math.random() * bucket.length)];
+    const templateId = bucket[Math.floor(Math.random() * bucket.length)];
+    const template = MONSTER_TEMPLATES[templateId];
 
     // 🌙 Night: monsters are buffed (hp/atk ×1.25, def ×1.15).
     const isNight = currentTimeOfDay === "night";
@@ -1157,7 +1221,8 @@ export default function App() {
       emoji: template.emoji,
       isDead: false,
       tier: template.tier,
-      dropTable: template.dropTable
+      dropTable: template.dropTable,
+      templateId
     };
 
     if (template.tier === "boss") {
@@ -1725,6 +1790,7 @@ export default function App() {
     let nextItems = items;
     let nextGearInventory = gearInventory;
     const itemCounts: Record<string, number> = {};
+    const materialCounts: Record<string, number> = {}; // for collect-material quests
 
     for (const entry of monster.dropTable) {
       let chance = entry.chance;
@@ -1737,6 +1803,7 @@ export default function App() {
         const qty = Math.floor(Math.random() * (maxQty - entry.min + 1)) + entry.min;
         if (entry.kind === "material" && MATERIALS[entry.id]) {
           nextMaterials[entry.id] = (nextMaterials[entry.id] || 0) + qty;
+          materialCounts[entry.id] = (materialCounts[entry.id] || 0) + qty;
           addLog(`📦 戰利品：拾獲【${MATERIALS[entry.id].emoji} ${MATERIALS[entry.id].name} x${qty}】！`, "crafting");
         } else if (entry.kind === "item") {
           itemCounts[entry.id] = (itemCounts[entry.id] || 0) + qty;
@@ -1796,6 +1863,10 @@ export default function App() {
     let updatedQuests = checkQuestMilestone("slay", 1, quests);
     updatedQuests = checkQuestMilestone("gold", actualRewardGold, updatedQuests);
     updatedQuests = checkQuestMilestone("experience", rewardExp, updatedQuests);
+    updatedQuests = checkQuestMilestone("slay_specific", 1, updatedQuests, monster.templateId);
+    Object.entries(materialCounts).forEach(([matId, q]) => {
+      updatedQuests = checkQuestMilestone("collect", q, updatedQuests, matId);
+    });
 
     setCombat(null);
     const nextSlot = advanceTimeSlot(); // venture resolved → consume a slot
@@ -2707,7 +2778,11 @@ export default function App() {
                         {LORE_RECORDS.map((log) => {
                           const isDecrypted = decryptedLogIds.includes(log.id);
                           const leaderLevel = party[0]?.lv || 1;
-                          const isUnlockable = leaderLevel >= log.unlockedAtLv;
+                          // Chapter-gated records use main-line progress; others use leader level.
+                          const isUnlockable =
+                            log.unlockedAtChapter !== undefined
+                              ? currentChapter >= log.unlockedAtChapter
+                              : leaderLevel >= log.unlockedAtLv;
 
                           if (isDecrypted) {
                             return (
@@ -2734,9 +2809,17 @@ export default function App() {
                                 onClick={() => {
                                   const updated = [...decryptedLogIds, log.id];
                                   setDecryptedLogIds(updated);
-                                  log.getReward(setGold, setMaterials);
+                                  // Apply reward deltas synchronously → no stale save
+                                  const reward = log.getReward();
+                                  const nextGold = gold + reward.gold;
+                                  const nextMaterials = { ...materials };
+                                  for (const k of Object.keys(reward.materials)) {
+                                    nextMaterials[k] = (nextMaterials[k] || 0) + reward.materials[k];
+                                  }
+                                  setGold(nextGold);
+                                  setMaterials(nextMaterials);
                                   addLog(`🔓 [星曆破譯] ${log.codename} 成功還原星區背景! 獲得：${log.rewardText}`, "system");
-                                  triggerAutosave(gold, party, quests, items, activeZoneId, statistics, materials, craftedArtifactIds, claimedAchievementIds, updated);
+                                  triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, nextMaterials, craftedArtifactIds, claimedAchievementIds, updated);
                                 }}
                                 className="p-2 bg-[#091e33]/40 text-cyan-400 border border-cyan-500/40 rounded-lg hover:bg-[#0f2a47] text-left transition-all cursor-pointer flex flex-col justify-between h-[64px] animate-pulse"
                                 title="點擊破譯獲取資源"
@@ -2765,7 +2848,7 @@ export default function App() {
                                   信號未解禁
                                 </span>
                                 <span className="text-[8px] text-red-500/80 font-mono self-end">
-                                  先鋒需達 Lv.{log.unlockedAtLv}
+                                  {log.unlockedAtChapter !== undefined ? `需推進主線至 Ch.${log.unlockedAtChapter}` : `先鋒需達 Lv.${log.unlockedAtLv}`}
                                 </span>
                               </div>
                             );
@@ -3403,16 +3486,51 @@ export default function App() {
                       <div className="space-y-3">
                         <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
-                            <Scroll className="w-3.5 h-3.5 text-emerald-400" /> 公會告示任務中心 (Quest Board)
+                            <Scroll className="w-3.5 h-3.5 text-emerald-400" /> 公會告示任務中心 (Quest Board) · 主線 Ch.{currentChapter}
                           </p>
                           接受指令並自動累計進度。凡是達成指標（亮起綠燈），即可隨時秒速回執領取海量金幣與共用經驗！
                         </div>
 
+                        {/* Quest kind tabs */}
+                        <div className="grid grid-cols-3 gap-1">
+                          {([["main", "🌠 主線"], ["side", "📜 支線"], ["daily", "🌅 每日"]] as const).map(([k, label]) => (
+                            <button
+                              key={k}
+                              onClick={() => setQuestKindTab(k)}
+                              className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                                questKindTab === k
+                                  ? "bg-emerald-500 border-emerald-600 text-slate-950"
+                                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+
                         <div className="space-y-2.5">
-                          {quests.map((q) => {
+                          {quests
+                            .filter((q) => q.kind === questKindTab)
+                            .sort((a, b) => (a.chapter ?? 0) - (b.chapter ?? 0))
+                            .map((q) => {
                             const isReady = q.status === "ready";
                             const isCompleted = q.status === "completed";
+                            const isLocked = q.isUnlocked === false && !isCompleted;
                             const percent = Math.min(100, Math.round((q.currentValue / q.targetValue) * 100));
+
+                            if (isLocked) {
+                              return (
+                                <div key={q.id} className="p-3 rounded-lg border bg-slate-950/30 border-slate-900 opacity-60">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <h4 className="font-mono font-bold text-slate-500">🔒 {q.title}</h4>
+                                    <span className="text-[9px] text-rose-400/80 font-mono">
+                                      {q.kind === "main" ? "完成前一章節解鎖" : `需推進主線至 Ch.${q.chapter ?? 1}`}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-600 mt-1 font-sans">尚未解鎖此開拓指令。</p>
+                                </div>
+                              );
+                            }
 
                             return (
                               <div
@@ -3447,6 +3565,13 @@ export default function App() {
                                 <p className="text-[11px] text-slate-400 leading-snug font-sans mb-2">
                                   {q.description}
                                 </p>
+
+                                {/* Story narrative (main line) */}
+                                {q.kind === "main" && (q.storyBefore || (isCompleted && q.storyAfter)) && (
+                                  <p className="text-[10px] text-indigo-300/80 italic leading-snug font-sans mb-2 border-l-2 border-indigo-800/50 pl-2">
+                                    📖 {isCompleted && q.storyAfter ? q.storyAfter : q.storyBefore}
+                                  </p>
+                                )}
 
                                 {/* Live progression tracking */}
                                 {!isCompleted && (
