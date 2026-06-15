@@ -222,6 +222,9 @@ export default function App() {
   const [hasSave, setHasSave] = useState<boolean>(false);
   const [isNewGameConfirmOpen, setIsNewGameConfirmOpen] = useState<boolean>(false);
   const [isManualOpen, setIsManualOpen] = useState<boolean>(false);
+  // Save export/import: feedback banner on the start screen + hidden file picker.
+  const [transferStatus, setTransferStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // --- Expanded Story/Lore Decyption States ---
   const [decryptedLogIds, setDecryptedLogIds] = useState<string[]>([]);
@@ -302,63 +305,68 @@ export default function App() {
   const animSeqRef = useRef(0);
   const nextAnimId = (prefix: string) => `${prefix}_${animSeqRef.current++}_${Date.now()}`;
 
+  // Push a parsed GameSave into React state. Shared by the on-mount localStorage
+  // restore and the "import save file" flow so both stay in lockstep.
+  const hydrateFromSave = (parsed: GameSave) => {
+    if (parsed.gold !== undefined) setGold(parsed.gold);
+    if (parsed.daysPassed !== undefined) setDaysPassed(parsed.daysPassed);
+    // merge-defaults for fields added in saveVersion 1 (old saves lack timeSlotIndex)
+    if (parsed.timeSlotIndex !== undefined) setTimeSlotIndex(parsed.timeSlotIndex);
+    if (parsed.party && parsed.party.length > 0) setParty(parsed.party);
+    // Only restore quests from a Stage-4-era save (they carry `kind`); legacy quest
+    // arrays are dropped so the new main/side/daily board isn't left empty.
+    if (parsed.quests && parsed.quests.some((q) => (q as Quest).kind)) setQuests(parsed.quests);
+    if (parsed.items) {
+      // Sync quantities with existing templates to match fresh names/descriptions
+      const updatedItems = SHOP_ITEMS.map(template => {
+        const savedItem = parsed.items.find(i => i.id === template.id);
+        return {
+          ...template,
+          count: savedItem ? savedItem.count : 0
+        };
+      });
+      setItems(updatedItems);
+    }
+    if (parsed.activeZoneId) setActiveZoneId(parsed.activeZoneId);
+    if (parsed.statistics) setStatistics(parsed.statistics);
+
+    // Hydrate materials, artifacts, achievements
+    if (parsed.materials) {
+      setMaterials(parsed.materials);
+    }
+    if (parsed.craftedArtifactIds) {
+      setCraftedArtifactIds(parsed.craftedArtifactIds);
+    }
+    if (parsed.claimedAchievementIds) {
+      setClaimedAchievementIds(parsed.claimedAchievementIds);
+    }
+    if (parsed.decryptedLogIds) {
+      setDecryptedLogIds(parsed.decryptedLogIds);
+    }
+    if (parsed.gearInventory) {
+      setGearInventory(parsed.gearInventory);
+    }
+    if (parsed.forgePity) {
+      setForgePity(parsed.forgePity);
+    }
+    if (parsed.completedQuestIds) setCompletedQuestIds(parsed.completedQuestIds);
+    if (parsed.currentChapter !== undefined) setCurrentChapter(parsed.currentChapter);
+    if (parsed.dailyQuestDate !== undefined) setDailyQuestDate(parsed.dailyQuestDate);
+  };
+
   // --- Loading Saved Data from localStorage ---
   useEffect(() => {
     try {
       const saved = localStorage.getItem("COSMIC_ODYSSEY_SAVE_STATE");
       if (saved) {
         setHasSave(true);
-        const parsed: GameSave = JSON.parse(saved);
-        if (parsed.gold !== undefined) setGold(parsed.gold);
-        if (parsed.daysPassed !== undefined) setDaysPassed(parsed.daysPassed);
-        // merge-defaults for fields added in saveVersion 1 (old saves lack timeSlotIndex)
-        if (parsed.timeSlotIndex !== undefined) setTimeSlotIndex(parsed.timeSlotIndex);
-        if (parsed.party && parsed.party.length > 0) setParty(parsed.party);
-        // Only restore quests from a Stage-4-era save (they carry `kind`); legacy quest
-        // arrays are dropped so the new main/side/daily board isn't left empty.
-        if (parsed.quests && parsed.quests.some((q) => (q as Quest).kind)) setQuests(parsed.quests);
-        if (parsed.items) {
-          // Sync quantities with existing templates to match fresh names/descriptions
-          const updatedItems = SHOP_ITEMS.map(template => {
-            const savedItem = parsed.items.find(i => i.id === template.id);
-            return {
-              ...template,
-              count: savedItem ? savedItem.count : 0
-            };
-          });
-          setItems(updatedItems);
-        }
-        if (parsed.activeZoneId) setActiveZoneId(parsed.activeZoneId);
-        if (parsed.statistics) setStatistics(parsed.statistics);
-
-        // Hydrate materials, artifacts, achievements
-        if (parsed.materials) {
-          setMaterials(parsed.materials);
-        }
-        if (parsed.craftedArtifactIds) {
-          setCraftedArtifactIds(parsed.craftedArtifactIds);
-        }
-        if (parsed.claimedAchievementIds) {
-          setClaimedAchievementIds(parsed.claimedAchievementIds);
-        }
-        if (parsed.decryptedLogIds) {
-          setDecryptedLogIds(parsed.decryptedLogIds);
-        }
-        if (parsed.gearInventory) {
-          setGearInventory(parsed.gearInventory);
-        }
-        if (parsed.forgePity) {
-          setForgePity(parsed.forgePity);
-        }
-        if (parsed.completedQuestIds) setCompletedQuestIds(parsed.completedQuestIds);
-        if (parsed.currentChapter !== undefined) setCurrentChapter(parsed.currentChapter);
-        if (parsed.dailyQuestDate !== undefined) setDailyQuestDate(parsed.dailyQuestDate);
-
+        hydrateFromSave(JSON.parse(saved) as GameSave);
         addLog("📂 檢測到已存檔的高能程式波形，已成功逆向載入隊伍進度！", "system");
       }
     } catch (e) {
       console.error("Failed to restore save data", e);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- Scroll Logs automatically ---
@@ -456,6 +464,57 @@ export default function App() {
       addLog(`⏳ 時段推進 → ${getTimeOfDayLabel(TIME_ORDER[next])}。`, "system");
     }
     return next;
+  };
+
+  // --- Save Export: download the persisted localStorage save as a JSON file ---
+  const handleExportSave = () => {
+    const raw = localStorage.getItem("COSMIC_ODYSSEY_SAVE_STATE");
+    if (!raw) {
+      setTransferStatus({ ok: false, msg: "尚無本地存檔可匯出，請先進行一次探險以產生存檔。" });
+      return;
+    }
+    try {
+      const blob = new Blob([raw], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cosmic-odyssey-save-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setTransferStatus({ ok: true, msg: "✅ 存檔已匯出為 JSON 檔案，請妥善保管你的星際波形備份。" });
+    } catch (e) {
+      console.error("Export failed", e);
+      setTransferStatus({ ok: false, msg: "⚠️ 匯出失敗，瀏覽器拒絕了下載請求。" });
+    }
+  };
+
+  // --- Save Import: read a JSON file, validate, persist, and hydrate into state ---
+  const handleImportSave = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string) as GameSave;
+        // Minimal shape check: a real save always carries a party roster.
+        if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.party) || parsed.party.length === 0) {
+          throw new Error("invalid-shape");
+        }
+        localStorage.setItem("COSMIC_ODYSSEY_SAVE_STATE", JSON.stringify(parsed));
+        hydrateFromSave(parsed);
+        setHasSave(true);
+        setTransferStatus({ ok: true, msg: "📥 存檔匯入成功！按「繼續/載入歷史波形」即可接續這段旅程。" });
+        addLog("📥 外部存檔波形匯入成功，隊伍進度已同步至本地磁軌！", "system");
+      } catch (err) {
+        console.error("Import failed", err);
+        setTransferStatus({ ok: false, msg: "⚠️ 匯入失敗：檔案並非有效的 Cosmic Odyssey 存檔。" });
+      }
+    };
+    reader.onerror = () => setTransferStatus({ ok: false, msg: "⚠️ 匯入失敗：無法讀取檔案。" });
+    reader.readAsText(file);
   };
 
   // --- Reset Game Flow ---
@@ -2078,6 +2137,49 @@ export default function App() {
               >
                 🚀 建立全新探險 (New Odyssey)
               </button>
+
+              {/* Save transfer: export / import to a JSON file */}
+              <div className="flex gap-2">
+                <button
+                  id="btn-export-save"
+                  onClick={handleExportSave}
+                  disabled={!hasSave}
+                  className={`flex-1 py-2.5 px-3 border rounded-lg text-[11px] font-semibold font-mono tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                    hasSave
+                      ? "bg-slate-900/40 hover:bg-slate-850 text-slate-300 hover:text-cyan-300 border-slate-800 hover:border-cyan-500/30 cursor-pointer"
+                      : "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed opacity-40"
+                  }`}
+                >
+                  💾 匯出存檔
+                </button>
+                <button
+                  id="btn-import-save"
+                  onClick={() => importInputRef.current?.click()}
+                  className="flex-1 py-2.5 px-3 bg-slate-900/40 hover:bg-slate-850 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/30 rounded-lg text-[11px] font-semibold font-mono tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  📥 匯入存檔
+                </button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleImportSave}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Transfer feedback banner */}
+              {transferStatus && (
+                <div
+                  className={`text-[11px] font-sans leading-relaxed rounded-lg border px-3 py-2 ${
+                    transferStatus.ok
+                      ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-300"
+                      : "bg-red-950/40 border-red-500/30 text-red-300"
+                  }`}
+                >
+                  {transferStatus.msg}
+                </div>
+              )}
 
               {/* Show tutorial option */}
               <button
