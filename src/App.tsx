@@ -50,7 +50,11 @@ import {
   Material,
   Artifact,
   SpaceEvent,
-  Achievement
+  Achievement,
+  DroppedGear,
+  DropEntry,
+  MonsterTier,
+  GearRarity
 } from "./types";
 
 import {
@@ -64,10 +68,23 @@ import {
   MONSTER_TEMPLATES,
   ZONES,
   INITIAL_QUESTS,
+  unlockEligibleQuests,
+  refreshDailyQuests,
   MATERIALS,
   ARTIFACTS,
   ACHIEVEMENTS,
-  RANDOM_EVENTS
+  RANDOM_EVENTS,
+  TIME_ORDER,
+  getTimeOfDayLabel,
+  applyExpGain,
+  GEAR_TEMPLATES,
+  GEAR_RARITY_LABEL,
+  GEAR_RARITY_COLOR,
+  rollDroppedGear,
+  materialBuyPrice,
+  materialSellPrice,
+  gearSellValue,
+  gearBuyPrice
 } from "./data";
 
 import ElementChart from "./components/ElementChart";
@@ -77,13 +94,12 @@ interface LoreRecord {
   title: string;
   codename: string;
   unlockedAtLv: number;
+  unlockedAtChapter?: number; // Stage 4: gate by main-quest chapter instead of level
   rewardText: string;
   description: string;
   secretReveal: string;
-  getReward: (
-    setGold: React.Dispatch<React.SetStateAction<number>>,
-    setMaterials: React.Dispatch<React.SetStateAction<Record<string, number>>>
-  ) => void;
+  // Returns reward deltas so the caller can apply + persist them synchronously (no stale save).
+  getReward: () => { gold: number; materials: Record<string, number> };
 }
 
 const LORE_RECORDS: LoreRecord[] = [
@@ -95,10 +111,7 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "星塵碎片 x3 & 100 能量金券",
     description: "風草地衣與異形黏液怪原本非原生星區生物，而是前文明生態播種引擎「Demeter-9」在大崩塌前的試驗殘存物。這些植株與孢子感應過往船隻的熱量波動與重力，進化出了高頻自衛射擊尖刺藤蔓。它們形成的生長晶能，在屬性循環中呈現完美的草屬性特徵，被高溫離子熱能（Fire）天然剋制。",
     secretReveal: "💡 戰術揭秘：使用「火 (Fire)」（如艾倫的超熱能離子大劍斬）攻擊「草 (Plant)」屬性魔物，可爆發 1.5 倍臨界暴擊傷害！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 100);
-      setMaterials(m => ({ ...m, stardust_shard: (m.stardust_shard || 0) + 3 }));
-    }
+    getReward: () => ({ gold: 100, materials: { stardust_shard: 3 } })
   },
   {
     id: "lore_frost_cave",
@@ -108,10 +121,7 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "超導重水結晶 x2 & 150 能量金券",
     description: "星夜冰封洞穴曾是前星際文明「Aegir」重工業聯合體的量子冷卻基地。在恆星重核聚變失衡爆發後，急速冷卻的冷阱使得重氫與重水汽瞬間凝結成硬度超越鈦合金的超導重水。深水鱟吞噬了這些超導重水微粒，外殼發生量子畸變，對常規高熱不著痕跡，唯有對離子強電（Electric）毫受抵抗力。",
     secretReveal: "💡 戰術揭秘：冰洞的水屬性魔物最畏懼「電 (Electric)」能量。派遣雷爆巫師麗娜（Lina）釋放「超離子風暴」可造成毀滅性雙倍打擊！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 150);
-      setMaterials(m => ({ ...m, heavy_water_crystal: (m.heavy_water_crystal || 0) + 2 }));
-    }
+    getReward: () => ({ gold: 150, materials: { heavy_water_crystal: 2 } })
   },
   {
     id: "lore_volcano_core",
@@ -121,10 +131,7 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "等離子聚能電池 x2 & 200 能量金券",
     description: "熔岩熱能之核並非天然火山，而是前哨航站墜毀的核聚變熱核裂變爐。爐芯燃燒百年不滅，高能矽酸鹽和熔化的超導離子形成了流動熔岩。高危熱熔岩蟹體背高溫極化核心，在極炎中反而獲取源源不斷的聚變再生盾。唯有使用低溫重水或冰霜能量（Water）才能讓其分子結構硬化皸裂。",
     secretReveal: "💡 戰術揭秘：火屬性魔物擁有瘋狂的爆發性破壞力，但遇到「水 (Water)」屬性的潮汐治癒或水之防護時會遭到 0.75x 傷害削弱，且水屬性能造成極限高傷！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 200);
-      setMaterials(m => ({ ...m, plasma_battery: (m.plasma_battery || 0) + 2 }));
-    }
+    getReward: () => ({ gold: 200, materials: { plasma_battery: 2 } })
   },
   {
     id: "lore_gravity_collapse",
@@ -134,10 +141,29 @@ const LORE_RECORDS: LoreRecord[] = [
     rewardText: "星雲熔熱核心 x1 & 300 能量金券",
     description: "失落引力岩洲的碎石懸浮機制源自「引力崩塌終型巨神兵」體內的主動重粒子奇點。此奇點是古文明用來固定這片重星軌道的平衡錨。由於控制程序混亂，巨神兵將一切外來信號視為入侵威脅。其磁場密度極大、堅如鐵石（Earth），然而生命藤蔓與孢子根系（Plant）的有機纖維能透過其磁隙深入其核心回路，造成瓦解。",
     secretReveal: "💡 戰術揭秘：土（Earth）屬性魔物擁有極高的防禦係數。在小隊中安排「草 (Plant)」屬性隊友（如加洛 Kael）釋放致命荊棘，能穿透其厚重鐵甲！",
-    getReward: (setGold, setMaterials) => {
-      setGold(g => g + 300);
-      setMaterials(m => ({ ...m, nebula_core: (m.nebula_core || 0) + 1 }));
-    }
+    getReward: () => ({ gold: 300, materials: { nebula_core: 1 } })
+  },
+  {
+    id: "lore_collapse_truth",
+    title: "【崩塌真相：平衡錨的背叛】",
+    codename: "SIGNAL-CORE-001",
+    unlockedAtLv: 1,
+    unlockedAtChapter: 6,
+    rewardText: "星雲熔熱核心 x2 & 500 能量金券",
+    description: "綜合各星區的殘缺日誌，真相逐漸浮現：所謂「大崩塌」並非天災，而是前文明為了維繫星軌平衡，將意志注入終型神兵作為「平衡錨」。當其中一座錨的控制程序失控，連鎖反應撕裂了整個星系的引力網——播種引擎、冷卻基地、裂變爐、電站，皆在那一夜接連崩潰。",
+    secretReveal: "💡 揭密：擊敗引力崩塌終型巨神兵只是表象，真正的源頭仍沉睡於最深的星夜之中。",
+    getReward: () => ({ gold: 500, materials: { nebula_core: 2 } })
+  },
+  {
+    id: "lore_new_dawn",
+    title: "【新紀元：星墓之後】",
+    codename: "SIGNAL-CORE-OMEGA",
+    unlockedAtLv: 1,
+    unlockedAtChapter: 8,
+    rewardText: "星雲熔熱核心 x3 & 1000 能量金券",
+    description: "星墓終焉巨像崩解後，潛伏的最終意志隨之消散。被撕裂的引力網開始自我修復，沉睡的星區重新流轉光華。開拓者站在星墓的廢墟之上，手握前文明的全部記憶——崩塌的罪責、求生的掙扎、以及對重生的渴望。這一次，平衡將由活著的人親手守護。",
+    secretReveal: "💡 終幕：崩塌並非終點，而是新紀元的序章。星空，重新屬於開拓者。🌌",
+    getReward: () => ({ gold: 1000, materials: { nebula_core: 3 } })
   }
 ];
 
@@ -145,6 +171,8 @@ export default function App() {
   // --- Game Core States ---
   const [gold, setGold] = useState<number>(150);
   const [daysPassed, setDaysPassed] = useState<number>(1);
+  // 🌅 Day & time-of-day: 0=morning, 1=noon, 2=night, 3=day exhausted (must rest/camp)
+  const [timeSlotIndex, setTimeSlotIndex] = useState<number>(0);
   const [party, setParty] = useState<Character[]>([HERO_INITIAL]);
   const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
   const [items, setItems] = useState<Item[]>(SHOP_ITEMS);
@@ -165,11 +193,23 @@ export default function App() {
   const [craftedArtifactIds, setCraftedArtifactIds] = useState<string[]>([]);
   const [claimedAchievementIds, setClaimedAchievementIds] = useState<string[]>([]);
   const [activeSpaceEvent, setActiveSpaceEvent] = useState<SpaceEvent | null>(null);
+  // 🛡️ Dropped gear inventory (Stage 2)
+  const [gearInventory, setGearInventory] = useState<DroppedGear[]>([]);
+  // 🔨 Per-slot forge pity (Stage 3). Key = `${charId}_${weapon|armor}`.
+  const [forgePity, setForgePity] = useState<Record<string, number>>({});
+  // 🏪 Trading-post daily stock (transient — not persisted; regenerates each in-game day)
+  const [exchangeStock, setExchangeStock] = useState<Array<{ kind: "gear" | "item"; id: string; price: number; rarity?: string }>>([]);
+  const [exchangeStockDay, setExchangeStockDay] = useState<number>(-1);
+  // 📖 Story progress (Stage 4)
+  const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
+  const [currentChapter, setCurrentChapter] = useState<number>(1);
+  const [dailyQuestDate, setDailyQuestDate] = useState<number>(1);
+  const [questKindTab, setQuestKindTab] = useState<"main" | "side" | "daily">("main");
 
   // --- UI/UX Navigation ---
-  const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests">("explore");
+  const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests" | "exchange">("explore");
   const [questsSubTab, setQuestsSubTab] = useState<"board" | "achievements">("board");
-  const [smithySubTab, setSmithySubTab] = useState<"forge" | "alchemy" | "awaken">("forge");
+  const [smithySubTab, setSmithySubTab] = useState<"forge" | "alchemy" | "awaken" | "gear">("forge");
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
   const [itemUsageTargetSelector, setItemUsageTargetSelector] = useState<{ isOpen: boolean; item: Item | null }>({
@@ -187,6 +227,10 @@ export default function App() {
   const [decryptedLogIds, setDecryptedLogIds] = useState<string[]>([]);
   const [activeLoreDetail, setActiveLoreDetail] = useState<any | null>(null);
   const [isLoreTerminalOpen, setIsLoreTerminalOpen] = useState<boolean>(false);
+
+  // --- Derived time-of-day (clamped so exhausted index 3 still maps to a label) ---
+  const currentTimeOfDay = TIME_ORDER[Math.min(timeSlotIndex, TIME_ORDER.length - 1)];
+  const isDayExhausted = timeSlotIndex >= TIME_ORDER.length;
 
   // --- Helper to check if an entity was recently hit or healed to trigger shake/glow animations ---
   const isRecentlyAttacked = (idx: number, isMonster: boolean) => {
@@ -227,6 +271,7 @@ export default function App() {
     round: number;
     activePartyTurnIndex: number; // 0..3 index of party member currently acting
     isAutoCombat: boolean;
+    atkBuffPct?: number; // transient ATK buff for THIS battle (from tonic_atk), e.g. 0.2 = +20%
     damageNumbers: Array<{
       id: string;
       text: string;
@@ -261,8 +306,12 @@ export default function App() {
         const parsed: GameSave = JSON.parse(saved);
         if (parsed.gold !== undefined) setGold(parsed.gold);
         if (parsed.daysPassed !== undefined) setDaysPassed(parsed.daysPassed);
+        // merge-defaults for fields added in saveVersion 1 (old saves lack timeSlotIndex)
+        if (parsed.timeSlotIndex !== undefined) setTimeSlotIndex(parsed.timeSlotIndex);
         if (parsed.party && parsed.party.length > 0) setParty(parsed.party);
-        if (parsed.quests) setQuests(parsed.quests);
+        // Only restore quests from a Stage-4-era save (they carry `kind`); legacy quest
+        // arrays are dropped so the new main/side/daily board isn't left empty.
+        if (parsed.quests && parsed.quests.some((q) => (q as Quest).kind)) setQuests(parsed.quests);
         if (parsed.items) {
           // Sync quantities with existing templates to match fresh names/descriptions
           const updatedItems = SHOP_ITEMS.map(template => {
@@ -290,6 +339,15 @@ export default function App() {
         if (parsed.decryptedLogIds) {
           setDecryptedLogIds(parsed.decryptedLogIds);
         }
+        if (parsed.gearInventory) {
+          setGearInventory(parsed.gearInventory);
+        }
+        if (parsed.forgePity) {
+          setForgePity(parsed.forgePity);
+        }
+        if (parsed.completedQuestIds) setCompletedQuestIds(parsed.completedQuestIds);
+        if (parsed.currentChapter !== undefined) setCurrentChapter(parsed.currentChapter);
+        if (parsed.dailyQuestDate !== undefined) setDailyQuestDate(parsed.dailyQuestDate);
 
         addLog("📂 檢測到已存檔的高能程式波形，已成功逆向載入隊伍進度！", "system");
       }
@@ -305,6 +363,25 @@ export default function App() {
     }
   }, [narrativeLogs, combat?.round, combat?.activePartyTurnIndex]);
 
+  // --- Trading-post daily stock refresh (regenerates whenever the day advances) ---
+  useEffect(() => {
+    if (exchangeStockDay !== daysPassed) {
+      setExchangeStock(generateExchangeStock());
+      setExchangeStockDay(daysPassed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daysPassed]);
+
+  // --- Daily quest refresh: once per in-game day, swap in fresh dailies with reset progress ---
+  useEffect(() => {
+    if (daysPassed > dailyQuestDate) {
+      setQuests((prev) => [...prev.filter((q) => q.kind !== "daily"), ...refreshDailyQuests(daysPassed)]);
+      setDailyQuestDate(daysPassed);
+      addLog("🌅 新的一天！每日開拓指令已刷新。", "system");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daysPassed]);
+
   // --- Safe Saving Function (Autosave Toast) ---
   const triggerAutosave = (
     currentGold: number,
@@ -316,11 +393,20 @@ export default function App() {
     currentMaterials?: Record<string, number>,
     currentArtifacts?: string[],
     currentAchievements?: string[],
-    currentDecryptedLogs?: string[]
+    currentDecryptedLogs?: string[],
+    currentDaysPassed?: number,
+    currentTimeSlotIndex?: number,
+    currentGearInventory?: DroppedGear[],
+    currentForgePity?: Record<string, number>,
+    currentCompletedQuestIds?: string[],
+    currentChapterVal?: number,
+    currentDailyQuestDate?: number
   ) => {
     const data: GameSave = {
+      saveVersion: 1,
       gold: currentGold,
-      daysPassed,
+      daysPassed: currentDaysPassed ?? daysPassed,
+      timeSlotIndex: currentTimeSlotIndex ?? timeSlotIndex,
       party: currentParty,
       quests: currentQuests,
       items: currentItems,
@@ -329,6 +415,11 @@ export default function App() {
       craftedArtifactIds: currentArtifacts || craftedArtifactIds,
       claimedAchievementIds: currentAchievements || claimedAchievementIds,
       decryptedLogIds: currentDecryptedLogs || decryptedLogIds,
+      gearInventory: currentGearInventory || gearInventory,
+      forgePity: currentForgePity || forgePity,
+      completedQuestIds: currentCompletedQuestIds || completedQuestIds,
+      currentChapter: currentChapterVal ?? currentChapter,
+      dailyQuestDate: currentDailyQuestDate ?? dailyQuestDate,
       unlockedCompanions: [],
       statistics: currentStats
     };
@@ -349,12 +440,26 @@ export default function App() {
     ]);
   };
 
+  // Advance one time-of-day slot when a venture resolves. Returns the new slot index
+  // so callers can thread it into triggerAutosave (avoiding the stale-closure save bug).
+  const advanceTimeSlot = (): number => {
+    const next = timeSlotIndex + 1;
+    setTimeSlotIndex(next);
+    if (next >= TIME_ORDER.length) {
+      addLog(`🌙 今日行程已盡，隊伍精疲力竭。請前往太空酒館休息，或就地野外紮營以迎接新一天。`, "system");
+    } else {
+      addLog(`⏳ 時段推進 → ${getTimeOfDayLabel(TIME_ORDER[next])}。`, "system");
+    }
+    return next;
+  };
+
   // --- Reset Game Flow ---
   const resetGame = () => {
     localStorage.removeItem("COSMIC_ODYSSEY_SAVE_STATE");
     setHasSave(false);
     setGold(150);
     setDaysPassed(1);
+    setTimeSlotIndex(0);
     setParty([HERO_INITIAL]);
     setQuests(INITIAL_QUESTS);
     setItems(SHOP_ITEMS.map(i => ({ ...i, count: 0 })));
@@ -367,6 +472,11 @@ export default function App() {
     setCraftedArtifactIds([]);
     setClaimedAchievementIds([]);
     setDecryptedLogIds([]);
+    setGearInventory([]);
+    setForgePity({});
+    setCompletedQuestIds([]);
+    setCurrentChapter(1);
+    setDailyQuestDate(1);
     setActiveZoneId("zone_1");
     setStatistics({
       totalGoldGained: 150,
@@ -382,15 +492,19 @@ export default function App() {
 
   // --- Check and progress Quests ---
   const checkQuestMilestone = (
-    type: "experience" | "slay" | "gold" | "upgrade",
+    type: Quest["targetType"],
     valueToAdd: number,
-    updatedQuestsState?: Quest[]
+    updatedQuestsState?: Quest[],
+    specificId?: string
   ) => {
     const activeQuests = updatedQuestsState || quests;
     let modified = false;
 
     const newQuests = activeQuests.map((q) => {
-      if (q.status === "active" && q.targetType === type) {
+      if (q.status === "active" && q.isUnlocked !== false && q.targetType === type) {
+        // Specific-target quests only progress on a matching id
+        if (type === "collect" && q.targetMaterialId !== specificId) return q;
+        if (type === "slay_specific" && q.targetMonsterId !== specificId) return q;
         const nextValue = Math.min(q.targetValue, q.currentValue + valueToAdd);
         if (nextValue !== q.currentValue) {
           modified = true;
@@ -416,7 +530,7 @@ export default function App() {
     const quest = quests.find((q) => q.id === questId);
     if (!quest || quest.status !== "ready") return;
 
-    const nextQuests = quests.map((q) => {
+    let nextQuests = quests.map((q) => {
       if (q.id === questId) {
         return { ...q, status: "completed" as const };
       }
@@ -429,50 +543,30 @@ export default function App() {
 
     // Distribute EXP to all party members
     const nextParty = party.map(member => {
-      let currentExp = member.exp + quest.rewardExp;
-      let nextLv = member.lv;
-      let nextMaxExp = member.maxExp;
-      let nextHp = member.hp;
-      let nextMaxHp = member.maxHp;
-      let nextMp = member.mp;
-      let nextMaxMp = member.maxMp;
-      let nextAtk = member.atk;
-      let nextDef = member.def;
-      let leveledUp = false;
-
-      while (currentExp >= nextMaxExp) {
-        currentExp -= nextMaxExp;
-        nextLv += 1;
-        nextMaxExp = Math.round(nextMaxExp * 1.5);
-        // Upgrades
-        nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
-        nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
-        nextAtk = nextAtk + 4;
-        nextDef = nextDef + 2;
-        nextHp = nextMaxHp; // Fully heal on level up
-        nextMp = nextMaxMp;
-        leveledUp = true;
-      }
-
+      const { member: leveled, leveledUp, newLv } = applyExpGain(member, quest.rewardExp);
       if (leveledUp) {
-        addLog(`💫 ✨ 飛躍成長！隊員【${member.name}】晉升至 LV.${nextLv}！基礎戰力大幅攀升！`, "victory");
+        addLog(`💫 ✨ 飛躍成長！隊員【${member.name}】晉升至 LV.${newLv}！基礎戰力大幅攀升！`, "victory");
       }
-
-      return {
-        ...member,
-        lv: nextLv,
-        exp: currentExp,
-        maxExp: nextMaxExp,
-        hp: nextHp,
-        maxHp: nextMaxHp,
-        mp: nextMp,
-        maxMp: nextMaxMp,
-        atk: nextAtk,
-        def: nextDef
-      };
+      return leveled;
     });
-
     setParty(nextParty);
+
+    const nextCompleted = [...completedQuestIds, questId];
+    setCompletedQuestIds(nextCompleted);
+
+    // Main-line: advance chapter, reveal story, unlock the next chapter + eligible side quests.
+    let nextChapter = currentChapter;
+    if (quest.kind === "main") {
+      nextChapter = currentChapter + 1;
+      setCurrentChapter(nextChapter);
+      if (quest.storyAfter) {
+        addLog(`📖 ${quest.title} —— ${quest.storyAfter}`, "event");
+      }
+      addLog(`🌠 主線推進！章節進度提升至 第 ${nextChapter} 章。`, "achievement");
+    }
+
+    // Recompute unlock state for the (post-completion) quest list.
+    nextQuests = unlockEligibleQuests(nextQuests, nextChapter, nextCompleted);
     setQuests(nextQuests);
 
     const nextStats = {
@@ -481,12 +575,25 @@ export default function App() {
     };
     setStatistics(nextStats);
 
-    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats);
+    triggerAutosave(
+      nextGold, nextParty, nextQuests, items, activeZoneId, nextStats,
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      nextCompleted, nextChapter
+    );
   };
 
   // --- Town Actions ---
 
-  // Blacksmith Upgrade Gear
+  const forgeSlotKey = (charId: string, type: "weapon" | "armor") => `${charId}_${type}`;
+
+  // Forge success chance: drops 7% per level (floor 30%), plus accumulated pity bonus (cap 99%).
+  const forgeSuccessChance = (currentLevel: number, charId: string, type: "weapon" | "armor") => {
+    const base = 0.95 - (currentLevel - 1) * 0.07;
+    const pityBonus = forgePity[forgeSlotKey(charId, type)] || 0;
+    return Math.min(0.99, Math.max(0.3, base) + pityBonus);
+  };
+
+  // Blacksmith Upgrade Gear (success rate + pity: gold always spent; pity guarantees success within a few fails)
   const upgradeGear = (charId: string, type: "weapon" | "armor") => {
     const member = party.find((m) => m.id === charId);
     if (!member) return;
@@ -499,9 +606,25 @@ export default function App() {
       return;
     }
 
+    // Gold is ALWAYS deducted (per locked design decision)
     const nextGold = gold - goldCost;
     setGold(nextGold);
 
+    const slotKey = forgeSlotKey(charId, type);
+    const successChance = forgeSuccessChance(currentLevel, charId, type);
+    const success = Math.random() < successChance;
+    const chancePct = Math.round(successChance * 100);
+
+    if (!success) {
+      // Failure: keep level, bump pity (+15% next attempt)
+      const nextForgePity = { ...forgePity, [slotKey]: (forgePity[slotKey] || 0) + 0.15 };
+      setForgePity(nextForgePity);
+      addLog(`💥 強化失敗！(成功率 ${chancePct}%) 裝備等級不變，但鍛造幸運值提升 (下次成功率 +15%)。已消耗 ${goldCost} 金幣。`, "system");
+      triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextForgePity);
+      return;
+    }
+
+    // Success: apply +1 level & stat bonus, reset pity
     const nextParty = party.map((m) => {
       if (m.id === charId) {
         if (type === "weapon") {
@@ -510,7 +633,7 @@ export default function App() {
             level: currentLevel + 1,
             bonus: m.equipment.weapon.bonus + 5
           };
-          addLog(`🔨 鐵匠敲打聲響起！【${m.name}】的武器「${nextWType.name}」已強化至 Lv.${nextWType.level}！(攻擊力 +5)`, "player_action");
+          addLog(`🔨 鐵匠敲打聲響起！(成功率 ${chancePct}%) 【${m.name}】的武器「${nextWType.name}」已強化至 Lv.${nextWType.level}！(攻擊力 +5)`, "player_action");
           return {
             ...m,
             atk: m.atk + 5,
@@ -522,7 +645,7 @@ export default function App() {
             level: currentLevel + 1,
             bonus: m.equipment.armor.bonus + 4
           };
-          addLog(`🔨 火花四濺！【${m.name}】的防具「${nextAType.name}」已強化至 Lv.${nextAType.level}！(防禦力 +3，最大生命 +15)`, "player_action");
+          addLog(`🔨 火花四濺！(成功率 ${chancePct}%) 【${m.name}】的防具「${nextAType.name}」已強化至 Lv.${nextAType.level}！(防禦力 +3，最大生命 +15)`, "player_action");
           return {
             ...m,
             def: m.def + 3,
@@ -537,16 +660,20 @@ export default function App() {
 
     setParty(nextParty);
 
+    // Reset pity for this slot on success
+    const nextForgePity = { ...forgePity, [slotKey]: 0 };
+    setForgePity(nextForgePity);
+
     const nextStats = {
       ...statistics,
       totalUpgradesDone: statistics.totalUpgradesDone + 1
     };
     setStatistics(nextStats);
 
-    // Progress Upgrade quest
+    // Progress Upgrade quest — count SUCCESSES only ("強化 5 次" intent)
     const nextQuests = checkQuestMilestone("upgrade", 1, quests);
 
-    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats);
+    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats, undefined, undefined, undefined, undefined, undefined, undefined, nextForgePity);
   };
 
   // 🌟 [Feature 1] Awaken Character (職業晉階 / 轉職覺醒)
@@ -778,7 +905,10 @@ export default function App() {
 
     const nextGold = gold - cost;
     setGold(nextGold);
-    setDaysPassed((d) => d + 1);
+    // New day: reset to morning. (Compute next day explicitly so the save isn't off-by-one.)
+    const nextDay = daysPassed + 1;
+    setDaysPassed(nextDay);
+    setTimeSlotIndex(0);
 
     const nextParty = party.map((m) => ({
       ...m,
@@ -788,9 +918,28 @@ export default function App() {
     }));
     setParty(nextParty);
 
-    addLog(`🛌 隊伍集體下線，在太空旅店休眠艙進行了深度保養與充能。全員生命值 (HP) 與法力值 (MP) 充能完畢！(天數 +1, 花費 ${cost} 金幣)`, "player_action");
+    addLog(`🛌 隊伍集體下線，在太空旅店休眠艙進行了深度保養與充能。全員生命值 (HP) 與法力值 (MP) 充能完畢！(第 ${nextDay} 日 ☀️ 早晨, 花費 ${cost} 金幣)`, "player_action");
 
-    triggerAutosave(nextGold, nextParty, quests, items, activeZoneId, statistics);
+    triggerAutosave(nextGold, nextParty, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, nextDay, 0);
+  };
+
+  // 野外紮營 (Camp) — free anti-softlock rest: new day, morning, restore 30% max HP/MP, no gold.
+  const campRest = () => {
+    const nextDay = daysPassed + 1;
+    setDaysPassed(nextDay);
+    setTimeSlotIndex(0);
+
+    const nextParty = party.map((m) => ({
+      ...m,
+      hp: Math.min(m.maxHp, m.hp + Math.round(m.maxHp * 0.3)),
+      mp: Math.min(m.maxMp, m.mp + Math.round(m.maxMp * 0.3)),
+      isDead: false
+    }));
+    setParty(nextParty);
+
+    addLog(`🏕️ 隊伍就地搭起野外應急營帳，靠星火與壓縮口糧勉強恢復了 30% 生命/法力 (免費)。(第 ${nextDay} 日 ☀️ 早晨)`, "player_action");
+
+    triggerAutosave(gold, nextParty, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, nextDay, 0);
   };
 
   // Recruit companion from Tavern
@@ -842,12 +991,168 @@ export default function App() {
     triggerAutosave(nextGold, nextParty, quests, items, activeZoneId, statistics);
   };
 
+  // Equip a dropped gear onto a party member. Reversible: we track the gear's
+  // currently-applied bonus on the slot, so swapping removes the old bonus then adds the new.
+  const equipGear = (charId: string, gearUid: string) => {
+    const gear = gearInventory.find((g) => g.uid === gearUid);
+    if (!gear) return;
+    const member = party.find((m) => m.id === charId);
+    if (!member) return;
+
+    const slot = gear.slot;
+    const current = member.equipment[slot];
+    if (current.gearUid === gearUid) {
+      addLog(`⚠️ 該裝備已裝備在【${member.name}】身上。`, "system");
+      return;
+    }
+
+    const deltaAtk = gear.atkBonus - (current.appliedAtk || 0);
+    const deltaDef = gear.defBonus - (current.appliedDef || 0);
+    const deltaHp = gear.hpBonus - (current.appliedHp || 0);
+
+    const newEq: Equipment = {
+      name: gear.name,
+      level: gear.level,
+      bonus: slot === "weapon" ? gear.atkBonus : gear.defBonus,
+      gearUid: gear.uid,
+      rarity: gear.rarity,
+      element: gear.element,
+      appliedAtk: gear.atkBonus,
+      appliedDef: gear.defBonus,
+      appliedHp: gear.hpBonus
+    };
+
+    const nextParty = party.map((m) => {
+      if (m.id !== charId) return m;
+      const newMaxHp = m.maxHp + deltaHp;
+      const newEquipment: EquipmentSet =
+        slot === "weapon" ? { ...m.equipment, weapon: newEq } : { ...m.equipment, armor: newEq };
+      return {
+        ...m,
+        atk: m.atk + deltaAtk,
+        def: m.def + deltaDef,
+        maxHp: newMaxHp,
+        hp: Math.max(1, Math.min(newMaxHp, m.hp + Math.max(0, deltaHp))),
+        equipment: newEquipment
+      };
+    });
+    setParty(nextParty);
+
+    const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+    addLog(
+      `🛡️ 裝備更換：【${member.name}】裝上了【${GEAR_RARITY_LABEL[gear.rarity]}】${gear.name}！(⚔️${fmt(deltaAtk)} 🛡️${fmt(deltaDef)} ❤️${fmt(deltaHp)})`,
+      "player_action"
+    );
+    triggerAutosave(gold, nextParty, quests, items, activeZoneId, statistics);
+  };
+
+  // --- Trading Post (Stage 3) ---
+  const buyMaterial = (matId: string) => {
+    const mat = MATERIALS[matId];
+    if (!mat) return;
+    const price = materialBuyPrice(mat.rarity);
+    if (gold < price) {
+      addLog(`❌ 金幣不足！購買【${mat.name}】需要 ${price} 金幣。`, "system");
+      return;
+    }
+    const nextGold = gold - price;
+    setGold(nextGold);
+    const nextMaterials = { ...materials, [matId]: (materials[matId] || 0) + 1 };
+    setMaterials(nextMaterials);
+    addLog(`🛒 交易所購入【${mat.emoji} ${mat.name} x1】，花費 ${price} 金幣。`, "player_action");
+    triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, nextMaterials);
+  };
+
+  const sellMaterial = (matId: string) => {
+    const mat = MATERIALS[matId];
+    if (!mat || (materials[matId] || 0) <= 0) return;
+    const price = materialSellPrice(mat.rarity);
+    const nextGold = gold + price;
+    setGold(nextGold);
+    const nextMaterials = { ...materials, [matId]: (materials[matId] || 0) - 1 };
+    setMaterials(nextMaterials);
+    addLog(`💱 交易所售出【${mat.emoji} ${mat.name} x1】，獲得 ${price} 金幣。`, "player_action");
+    triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, nextMaterials);
+  };
+
+  const sellGear = (gearUid: string) => {
+    const gear = gearInventory.find((g) => g.uid === gearUid);
+    if (!gear) return;
+    const equipped = party.some((m) => m.equipment[gear.slot].gearUid === gear.uid);
+    if (equipped) {
+      addLog(`⚠️ 該裝備正裝備在隊員身上，請先替換後再出售。`, "system");
+      return;
+    }
+    const value = gearSellValue(gear);
+    const nextGold = gold + value;
+    setGold(nextGold);
+    const nextGearInventory = gearInventory.filter((g) => g.uid !== gearUid);
+    setGearInventory(nextGearInventory);
+    addLog(`💱 交易所售出【${GEAR_RARITY_LABEL[gear.rarity]}】${gear.name}，獲得 ${value} 金幣。`, "player_action");
+    triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextGearInventory);
+  };
+
+  // Build a fresh daily stock of 3-5 random gear/potions (transient, regenerates each day).
+  const generateExchangeStock = (): Array<{ kind: "gear" | "item"; id: string; price: number; rarity?: string }> => {
+    const stock: Array<{ kind: "gear" | "item"; id: string; price: number; rarity?: string }> = [];
+    const gearIds = Object.keys(GEAR_TEMPLATES);
+    const potionIds = SHOP_ITEMS.map((s) => s.id);
+    const count = 3 + Math.floor(Math.random() * 3); // 3..5
+    for (let i = 0; i < count; i++) {
+      if (Math.random() < 0.5) {
+        const id = gearIds[Math.floor(Math.random() * gearIds.length)];
+        const t = GEAR_TEMPLATES[id];
+        stock.push({ kind: "gear", id, price: gearBuyPrice(t.rarity), rarity: t.rarity });
+      } else {
+        const id = potionIds[Math.floor(Math.random() * potionIds.length)];
+        const tmpl = SHOP_ITEMS.find((s) => s.id === id);
+        stock.push({ kind: "item", id, price: Math.round((tmpl?.price || 50) * 1.2) });
+      }
+    }
+    return stock;
+  };
+
+  const buyFromExchangeStock = (idx: number) => {
+    const entry = exchangeStock[idx];
+    if (!entry) return;
+    if (gold < entry.price) {
+      addLog(`❌ 金幣不足！購買此商品需要 ${entry.price} 金幣。`, "system");
+      return;
+    }
+    const nextGold = gold - entry.price;
+    setGold(nextGold);
+    setExchangeStock(exchangeStock.filter((_, i) => i !== idx));
+
+    if (entry.kind === "gear") {
+      const g = rollDroppedGear(entry.id);
+      if (g) {
+        const nextGearInventory = [...gearInventory, g];
+        setGearInventory(nextGearInventory);
+        addLog(`🛒 交易所購入裝備【${GEAR_RARITY_LABEL[g.rarity]}】${g.name}（⚔️+${g.atkBonus} 🛡️+${g.defBonus} ❤️+${g.hpBonus}）！`, "player_action");
+        triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextGearInventory);
+      }
+    } else {
+      const nextItems = items.map((it) => (it.id === entry.id ? { ...it, count: it.count + 1 } : it));
+      setItems(nextItems);
+      const tmpl = items.find((i) => i.id === entry.id);
+      addLog(`🛒 交易所購入【${tmpl?.emoji || ""} ${tmpl?.name || entry.id} x1】！`, "player_action");
+      triggerAutosave(nextGold, party, quests, nextItems, activeZoneId, statistics);
+    }
+  };
+
   // --- Combat Engine Logic ---
 
   // Trigger Combat Start
   const startCombat = (zoneId: string) => {
     const zone = ZONES.find((z) => z.id === zoneId);
     if (!zone) return;
+
+    // Day exhausted: night venture already spent — block until rest/camp.
+    // (This guard does NOT consume a slot; the early-returns below don't either.)
+    if (isDayExhausted) {
+      addLog(`🌙 夜深了，隊伍需要休整。請前往太空酒館休息以迎接新一天。`, "system");
+      return;
+    }
 
     // Check min level
     const heroLevel = party[0].lv;
@@ -871,24 +1176,63 @@ export default function App() {
       return;
     }
 
-    // Select random monster template
-    const randTmpName = zone.monsters[Math.floor(Math.random() * zone.monsters.length)];
-    const template = MONSTER_TEMPLATES[randTmpName] || MONSTER_TEMPLATES.slime_plant;
+    // Spawn picker: filter by time-of-day, then weight by tier (normal 70 / elite 25 / boss 5).
+    const pool = zone.monsters
+      .filter((name) => MONSTER_TEMPLATES[name] && MONSTER_TEMPLATES[name].timeAvailability.includes(currentTimeOfDay));
+
+    const candidateKeys = pool.length > 0 ? pool : ["slime_plant"];
+
+    const byTier: Record<MonsterTier, string[]> = { normal: [], elite: [], boss: [] };
+    candidateKeys.forEach((key) => byTier[MONSTER_TEMPLATES[key].tier].push(key));
+
+    const tierWeights: Array<[MonsterTier, number]> = [];
+    if (byTier.normal.length) tierWeights.push(["normal", 70]);
+    if (byTier.elite.length) tierWeights.push(["elite", 25]);
+    if (byTier.boss.length) tierWeights.push(["boss", 5]);
+
+    const totalWeight = tierWeights.reduce((s, [, w]) => s + w, 0);
+    let roll = Math.random() * totalWeight;
+    let chosenTier: MonsterTier = tierWeights[0][0];
+    for (const [tier, w] of tierWeights) {
+      if (roll < w) { chosenTier = tier; break; }
+      roll -= w;
+    }
+    const bucket = byTier[chosenTier];
+    const templateId = bucket[Math.floor(Math.random() * bucket.length)];
+    const template = MONSTER_TEMPLATES[templateId];
+
+    // 🌙 Night: monsters are buffed (hp/atk ×1.25, def ×1.15).
+    const isNight = currentTimeOfDay === "night";
+    const spawnHp = isNight ? Math.round(template.baseHp * 1.25) : template.baseHp;
+    const spawnAtk = isNight ? Math.round(template.baseAtk * 1.25) : template.baseAtk;
+    const spawnDef = isNight ? Math.round(template.baseDef * 1.15) : template.baseDef;
 
     const spawnMonster: Monster = {
       id: `monster_${Date.now()}`,
-      name: template.name,
-      hp: template.baseHp,
-      maxHp: template.baseHp,
-      atk: template.baseAtk,
-      def: template.baseDef,
+      name: isNight ? `🌙 ${template.name}` : template.name,
+      hp: spawnHp,
+      maxHp: spawnHp,
+      atk: spawnAtk,
+      def: spawnDef,
       element: template.element,
       rewardExp: template.rewardExp,
       rewardGold: template.rewardGold,
       description: template.description,
       emoji: template.emoji,
-      isDead: false
+      isDead: false,
+      tier: template.tier,
+      dropTable: template.dropTable,
+      templateId
     };
+
+    if (template.tier === "boss") {
+      addLog(`☠️ 警告：偵測到極高能量讀數 —— 這是一隻【域主級】強敵！`, "system");
+    } else if (template.tier === "elite") {
+      addLog(`⚠️ 偵測到強化精英個體信號，戰力高於一般魔物！`, "system");
+    }
+    if (isNight) {
+      addLog(`🌙 夜域強化：魔物在夜色中變得更兇猛 (生命/攻擊 +25%，防禦 +15%)！`, "system");
+    }
 
     // Find first alive party member index to serve as active combat turn
     let firstAliveIdx = party.findIndex((m) => m.hp > 0 && !m.isDead);
@@ -914,6 +1258,7 @@ export default function App() {
     const localParty = [...party];
     const localMaterials = { ...materials };
     const localItems = [...items];
+    let finalItems = localItems; // track item mutations so the save isn't stale
 
     let outcomeLog = "";
 
@@ -978,6 +1323,7 @@ export default function App() {
           if (i.id === "phoenix_feather") return { ...i, count: i.count + 1 };
           return i;
         });
+        finalItems = updatedItems;
         setItems(updatedItems);
         outcomeLog = `🪶 交易成功！花費 80 Credits 強行買入【🪶 鳳凰量子甦生羽 x1】(立省 70 金幣)！`;
       } else {
@@ -992,43 +1338,10 @@ export default function App() {
       });
       // Add exp to all
       localParty.forEach((m, idx) => {
-        let currentExp = m.exp + 100;
-        let nextLv = m.lv;
-        let nextMaxExp = m.maxExp;
-        let nextHp = m.hp;
-        let nextMaxHp = m.maxHp;
-        let nextMp = m.mp;
-        let nextMaxMp = m.maxMp;
-        let nextAtk = m.atk;
-        let nextDef = m.def;
-        let leveledUp = false;
-
-        while (currentExp >= nextMaxExp) {
-          currentExp -= nextMaxExp;
-          nextLv += 1;
-          nextMaxExp = Math.round(nextMaxExp * 1.5);
-          nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
-          nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
-          nextAtk = nextAtk + 4;
-          nextDef = nextDef + 2;
-          nextHp = nextMaxHp;
-          nextMp = nextMaxMp;
-          leveledUp = true;
-        }
-        localParty[idx] = {
-          ...m,
-          lv: nextLv,
-          exp: currentExp,
-          maxExp: nextMaxExp,
-          hp: nextHp,
-          maxHp: nextMaxHp,
-          mp: nextMp,
-          maxMp: nextMaxMp,
-          atk: nextAtk,
-          def: nextDef
-        };
+        const { member: leveled, leveledUp, newLv } = applyExpGain(m, 100);
+        localParty[idx] = leveled;
         if (leveledUp) {
-          addLog(`☄️ 磁暴突破！【${m.name}】在恆星微波感應中突破至 LV.${nextLv}！`, "victory");
+          addLog(`☄️ 磁暴突破！【${m.name}】在恆星微波感應中突破至 LV.${newLv}！`, "victory");
         }
       });
       outcomeLog = `🛡️ 護盾抗阻！雖然隊伍遭受了 20% 當前生命值的重力亂流衝擊，但在科研感應器記錄下，小隊全體成員共享了 +100 點粒子經驗值 (EXP)！`;
@@ -1050,9 +1363,10 @@ export default function App() {
     setParty(localParty);
     setMaterials(localMaterials);
 
-    // Save and close
+    // Save and close — a space event is a venture, so it consumes a time slot.
     setActiveSpaceEvent(null);
-    triggerAutosave(localGold, localParty, quests, items, activeZoneId, statistics, localMaterials);
+    const nextSlot = advanceTimeSlot();
+    triggerAutosave(localGold, localParty, quests, finalItems, activeZoneId, statistics, localMaterials, undefined, undefined, undefined, undefined, nextSlot);
   };
 
   // Apply ally actions (Attack, Skill, Use Item)
@@ -1074,10 +1388,13 @@ export default function App() {
     let costMp = 0;
     let actionAnimType: "critical" | "guarded" | "normal" | "heal" | "revive" = "normal";
 
+    // 🧬 tonic_atk per-battle ATK buff (1.0 = none)
+    const atkBuff = 1 + (combat.atkBuffPct || 0);
+
     if (actionType === "attack") {
       // Normal attack
       const relation = getElementRelation(actor.element, monster.element);
-      const baseDmg = actor.atk;
+      const baseDmg = actor.atk * atkBuff;
       damage = Math.max(2, Math.round((baseDmg - monster.def * 0.4) * relation.multiplier));
       actionAnimType = relation.type;
 
@@ -1110,7 +1427,7 @@ export default function App() {
 
       if (skill.effect === "damage") {
         const relation = getElementRelation(actor.element, monster.element);
-        const baseDmg = actor.atk * skill.multiplier;
+        const baseDmg = actor.atk * skill.multiplier * atkBuff;
         damage = Math.max(5, Math.round((baseDmg - monster.def * 0.45) * relation.multiplier));
         actionAnimType = relation.type;
 
@@ -1164,7 +1481,7 @@ export default function App() {
       } else if (skill.effect === "shield") {
         // Paladin Sacred Aegis Shield / Minor area damage + heal allies
         const healAmt = 100;
-        const baseDmg = actor.atk * 1.2;
+        const baseDmg = actor.atk * 1.2 * atkBuff;
         const relation = getElementRelation(actor.element, monster.element);
         damage = Math.max(2, Math.round((baseDmg - monster.def * 0.4) * relation.multiplier));
         actionAnimType = relation.type;
@@ -1198,24 +1515,31 @@ export default function App() {
       setItems(countAlteredItems);
 
       let targetText = "";
+      let animText = "";
       const updatedParty = party.map((m, idx) => {
         if (idx === activePartyTurnIndex) {
           if (targetItem.type === "healing") {
             const nextHp = Math.min(m.maxHp, m.hp + targetItem.effectValue);
             targetText = `給【${m.name}】灌注了 ${targetItem.name}，微觀奈米機器人瘋狂復原 +${targetItem.effectValue} HP！`;
+            animText = `+${targetItem.effectValue} HP 🧪`;
             return { ...m, hp: nextHp, isDead: false };
           } else if (targetItem.type === "mana") {
             const nextMp = Math.min(m.maxMp, m.mp + targetItem.effectValue);
             targetText = `給【${m.name}】接入了 ${targetItem.name}，能量魔能儲存腔快速補充 +${targetItem.effectValue} MP！`;
+            animText = `+${targetItem.effectValue} MP 🌀`;
             return { ...m, mp: nextMp };
           } else if (targetItem.type === "revive") {
             if (m.hp <= 0 || m.isDead) {
-              const revivedHp = Math.round(m.maxHp * 0.5);
-              targetText = `向【${m.name}】投射 ${targetItem.name}！強制倒帶生命程式，逆時復活成功並回復 +${revivedHp} HP！`;
+              const revivedHp = Math.round(m.maxHp * (targetItem.effectValue / 100));
+              targetText = `向【${m.name}】投射 ${targetItem.name}！強制倒帶生命程式，逆時復活成功並回復 +${revivedHp} HP (${targetItem.effectValue}%)！`;
+              animText = `+${revivedHp} HP ✨`;
               return { ...m, hp: revivedHp, isDead: false };
             } else {
-              targetText = `對【${m.name}】使用了甦生羽，但其心跳信號良好，僅提供少量高階淨化效果。`;
+              targetText = `對【${m.name}】使用了 ${targetItem.name}，但其心跳信號良好，僅提供少量高階淨化效果。`;
             }
+          } else if (targetItem.type === "buff") {
+            targetText = `【${m.name}】注射了 ${targetItem.name}！本場戰鬥的攻擊力提升 ${targetItem.effectValue}%！`;
+            animText = `ATK +${targetItem.effectValue}% 🧬`;
           }
         }
         return m;
@@ -1224,10 +1548,15 @@ export default function App() {
       setParty(updatedParty);
       addLog(`🧪 背包補給！${targetText}`, "player_action");
 
-      // Add healing damage numbers animation
+      // Apply the transient battle ATK buff (stacks additively for the rest of this battle)
+      if (targetItem.type === "buff") {
+        setCombat((prev) => (prev ? { ...prev, atkBuffPct: (prev.atkBuffPct || 0) + targetItem.effectValue / 100 } : null));
+      }
+
+      // Add overlay number animation on the targeted ally card
       const itemAnim = {
         id: `item_anim_${Date.now()}`,
-        text: `+${targetItem.effectValue} ${targetItem.type === "healing" ? "HP 🧪" : "MP 🌀"}`,
+        text: animText || targetItem.name,
         isMonsterTarget: false,
         targetIndex: activePartyTurnIndex,
         type: "heal" as const
@@ -1433,95 +1762,91 @@ export default function App() {
 
     addLog(`🎉 🏆 戰鬥勝出！成功殲滅太空魔物 【${monster.name}】！`, "victory");
 
-    // Earn EXP and Gold
-    const rewardExp = monster.rewardExp;
-    const rewardGold = monster.rewardGold;
+    // Earn EXP and Gold (time-of-day modifies the take)
+    const isNoon = currentTimeOfDay === "noon";
+    const isNight = currentTimeOfDay === "night";
 
-    // Apply Gold Attractor passive blessing
+    // 🌙 Night: exp ×1.2.  ☀️🌤️ otherwise baseline.
+    const rewardExp = isNight ? Math.round(monster.rewardExp * 1.2) : monster.rewardExp;
+
+    // Apply Gold Attractor passive blessing, then time-of-day gold modifiers
     const hasGoldAttractor = craftedArtifactIds.includes("artifact_attractor");
-    const actualRewardGold = hasGoldAttractor ? Math.round(rewardGold * 1.25) : rewardGold;
+    let actualRewardGold = hasGoldAttractor ? Math.round(monster.rewardGold * 1.25) : monster.rewardGold;
+    if (isNoon) actualRewardGold = Math.round(actualRewardGold * 1.15); // 🌤️ noon bonus
+    if (isNight) actualRewardGold = Math.round(actualRewardGold * 1.2); // 🌙 night bonus
 
     const nextGold = gold + actualRewardGold;
     setGold(nextGold);
 
-    if (hasGoldAttractor) {
-      addLog(`💰 冒險核對：開拓帳戶新增能源金幣 +${actualRewardGold} ✨！(包含「超維度重力引金磁針」額外 25% 充值)`, "victory");
-    } else {
-      addLog(`💰 冒險核對：開拓帳戶新增能源金幣 +${actualRewardGold} ✨！`, "victory");
-    }
+    const bonusNotes: string[] = [];
+    if (hasGoldAttractor) bonusNotes.push("磁針 +25%");
+    if (isNoon) bonusNotes.push("🌤️ 午間 +15%");
+    if (isNight) bonusNotes.push("🌙 夜域 +20% Gold/EXP");
+    const timeNote = bonusNotes.length > 0 ? ` (${bonusNotes.join("、")})` : "";
+    addLog(`💰 冒險核對：開拓帳戶新增能源金幣 +${actualRewardGold} ✨！${timeNote}`, "victory");
 
-    // Material rewards drop mechanics
-    let droppedMatId = "";
-    const rand = Math.random();
-    if (activeZoneId === "zone_1") {
-      if (rand < 0.65) droppedMatId = "stardust_shard";
-    } else if (activeZoneId === "zone_2") {
-      if (rand < 0.55) droppedMatId = "heavy_water_crystal";
-      else if (rand < 0.75) droppedMatId = "stardust_shard";
-    } else if (activeZoneId === "zone_3") {
-      if (rand < 0.50) droppedMatId = "plasma_battery";
-      else if (rand < 0.70) droppedMatId = "heavy_water_crystal";
-    } else if (activeZoneId === "zone_4") {
-      if (rand < 0.45) droppedMatId = "plasma_battery";
-      else if (rand < 0.65) droppedMatId = "nebula_core";
-    } else if (activeZoneId === "zone_5") {
-      if (rand < 0.60) droppedMatId = "nebula_core";
-    }
-
+    // --- Drop-table resolution. Night boosts chance ×1.4 (cap .95) and +1 max qty. ---
     const nextMaterials = { ...materials };
-    if (droppedMatId && MATERIALS[droppedMatId]) {
-      nextMaterials[droppedMatId] = (nextMaterials[droppedMatId] || 0) + 1;
-      setMaterials(nextMaterials);
-      addLog(`📦 戰場廢墟物資回收：拾獲【${MATERIALS[droppedMatId].emoji} ${MATERIALS[droppedMatId].name} x1】已納入小隊貨艙！`, "crafting");
+    let nextItems = items;
+    let nextGearInventory = gearInventory;
+    const itemCounts: Record<string, number> = {};
+    const materialCounts: Record<string, number> = {}; // for collect-material quests
+
+    for (const entry of monster.dropTable) {
+      let chance = entry.chance;
+      let maxQty = entry.max;
+      if (isNight) {
+        chance = Math.min(0.95, chance * 1.4);
+        maxQty += 1;
+      }
+      if (Math.random() < chance) {
+        const qty = Math.floor(Math.random() * (maxQty - entry.min + 1)) + entry.min;
+        if (entry.kind === "material" && MATERIALS[entry.id]) {
+          nextMaterials[entry.id] = (nextMaterials[entry.id] || 0) + qty;
+          materialCounts[entry.id] = (materialCounts[entry.id] || 0) + qty;
+          addLog(`📦 戰利品：拾獲【${MATERIALS[entry.id].emoji} ${MATERIALS[entry.id].name} x${qty}】！`, "crafting");
+        } else if (entry.kind === "item") {
+          itemCounts[entry.id] = (itemCounts[entry.id] || 0) + qty;
+        } else if (entry.kind === "gear") {
+          const rolled: DroppedGear[] = [];
+          for (let i = 0; i < qty; i++) {
+            const g = rollDroppedGear(entry.id);
+            if (g) rolled.push(g);
+          }
+          if (rolled.length > 0) {
+            nextGearInventory = [...nextGearInventory, ...rolled];
+            rolled.forEach((g) =>
+              addLog(`🎁 裝備掉落：【${GEAR_RARITY_LABEL[g.rarity]}】${g.name}（⚔️+${g.atkBonus} 🛡️+${g.defBonus} ❤️+${g.hpBonus}）已收入裝備庫！`, "crafting")
+            );
+          }
+        }
+      }
     }
+
+    // Apply consumable drops in one pass
+    if (Object.keys(itemCounts).length > 0) {
+      nextItems = items.map((it) => (itemCounts[it.id] ? { ...it, count: it.count + itemCounts[it.id] } : it));
+      Object.entries(itemCounts).forEach(([id, q]) => {
+        const tmpl = items.find((i) => i.id === id);
+        if (tmpl) addLog(`🎁 補給掉落：【${tmpl.emoji} ${tmpl.name} x${q}】！`, "crafting");
+      });
+    }
+
+    setMaterials(nextMaterials);
+    if (nextItems !== items) setItems(nextItems);
+    if (nextGearInventory !== gearInventory) setGearInventory(nextGearInventory);
 
     // Distribute EXP
     const expHealedParty = finalPartyState.map((member) => {
       if (member.hp <= 0 || member.isDead) return member; // Dead companions do not earn active combat EXP!
 
-      let currentExp = member.exp + rewardExp;
-      let nextLv = member.lv;
-      let nextMaxExp = member.maxExp;
-      let nextHp = member.hp;
-      let nextMaxHp = member.maxHp;
-      let nextMp = member.mp;
-      let nextMaxMp = member.maxMp;
-      let nextAtk = member.atk;
-      let nextDef = member.def;
-      let leveledUp = false;
-
-      while (currentExp >= nextMaxExp) {
-        currentExp -= nextMaxExp;
-        nextLv += 1;
-        nextMaxExp = Math.round(nextMaxExp * 1.5);
-        // Stats scaling
-        nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
-        nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
-        nextAtk = nextAtk + 4;
-        nextDef = nextDef + 2;
-        nextHp = nextMaxHp; // Refill HP entirely on level up!
-        nextMp = nextMaxMp;
-        leveledUp = true;
-      }
-
+      const { member: leveled, leveledUp, newLv } = applyExpGain(member, rewardExp);
       if (leveledUp) {
-        addLog(`✨ 💫 突破極限！我方隊員【${member.name}】晉階提升至 LV.${nextLv}！攻擊/防禦特性全方位升載！`, "victory");
+        addLog(`✨ 💫 突破極限！我方隊員【${member.name}】晉階提升至 LV.${newLv}！攻擊/防禦特性全方位升載！`, "victory");
       } else {
         addLog(`🧪 【${member.name}】汲取戰場數據能量 EXP +${rewardExp}。`, "victory");
       }
-
-      return {
-        ...member,
-        lv: nextLv,
-        exp: currentExp,
-        maxExp: nextMaxExp,
-        hp: nextHp,
-        maxHp: nextMaxHp,
-        mp: nextMp,
-        maxMp: nextMaxMp,
-        atk: nextAtk,
-        def: nextDef
-      };
+      return leveled;
     });
 
     setParty(expHealedParty);
@@ -1538,9 +1863,14 @@ export default function App() {
     let updatedQuests = checkQuestMilestone("slay", 1, quests);
     updatedQuests = checkQuestMilestone("gold", actualRewardGold, updatedQuests);
     updatedQuests = checkQuestMilestone("experience", rewardExp, updatedQuests);
+    updatedQuests = checkQuestMilestone("slay_specific", 1, updatedQuests, monster.templateId);
+    Object.entries(materialCounts).forEach(([matId, q]) => {
+      updatedQuests = checkQuestMilestone("collect", q, updatedQuests, matId);
+    });
 
     setCombat(null);
-    triggerAutosave(nextGold, expHealedParty, updatedQuests, items, activeZoneId, nextStats, nextMaterials);
+    const nextSlot = advanceTimeSlot(); // venture resolved → consume a slot
+    triggerAutosave(nextGold, expHealedParty, updatedQuests, nextItems, activeZoneId, nextStats, nextMaterials, undefined, undefined, undefined, undefined, nextSlot, nextGearInventory);
   };
 
   // Player Defeat Flow (Soft game over, recovery back in town with slight fee)
@@ -1570,7 +1900,8 @@ export default function App() {
 
     addLog(`🛰️ 軌道救援艙迅速投射，已成功將隊伍拖回安全區。扣除 15% 搶修保障金卷 (-${penaltyFee} 金幣)。主角已被極限重啟復甦 (50% HP)，請妥善修補防線！`, "system");
 
-    triggerAutosave(nextGold, recoveredParty, quests, items, activeZoneId, statistics);
+    const nextSlot = advanceTimeSlot(); // a failed venture still spends the time slot
+    triggerAutosave(nextGold, recoveredParty, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, nextSlot);
   };
 
   // Escape combat safely
@@ -1578,6 +1909,8 @@ export default function App() {
     if (!combat) return;
     addLog(`🏃 警告！隊員釋放高頻擾空干擾，慌忙地在傳送覆蓋超載中逃離了與【${combat.monster.name}】的戰鬥。`, "system");
     setCombat(null);
+    const nextSlot = advanceTimeSlot(); // fleeing still consumes the slot
+    triggerAutosave(gold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, nextSlot);
   };
 
   // --- Auto-combat engine processor ---
@@ -1622,6 +1955,12 @@ export default function App() {
     const companion = party[colleagueIndex];
     if (!companion) return;
 
+    // Battle-only buffs (tonic) can't be used in town; don't waste them.
+    if (item.type === "buff") {
+      addLog(`⚠️ 【${item.name}】屬於戰鬥強化劑，只能在戰鬥中對出戰隊員使用。`, "system");
+      return;
+    }
+
     // Apply outcomes
     let adjustedItems = items.map((i) => {
       if (i.id === itemId) return { ...i, count: i.count - 1 };
@@ -1642,8 +1981,8 @@ export default function App() {
           return { ...m, mp: nextMp };
         } else if (item.type === "revive") {
           if (m.hp <= 0 || m.isDead) {
-            const revivedHp = Math.round(m.maxHp * 0.5);
-            logsText = `⚙️ 程式逆重構成效：【${m.name}】原位啟動，注入 50% 核心生命波 (+${revivedHp} HP) 解除死機態！`;
+            const revivedHp = Math.round(m.maxHp * (item.effectValue / 100));
+            logsText = `⚙️ 程式逆重構成效：【${m.name}】原位啟動，注入 ${item.effectValue}% 核心生命波 (+${revivedHp} HP) 解除死機態！`;
             return { ...m, hp: revivedHp, isDead: false };
           } else {
             logsText = `⚠️ 施效偏振：【${m.name}】不處於死機態，量子羽毛注入僅溢出微弱的戰備抗磨抗性。`;
@@ -1839,10 +2178,33 @@ export default function App() {
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[#3a4e69]">STATION CLOCK:</span>
+                  <span className="text-[#3a4e69]">📅 第</span>
                   <span className="text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-990/30 font-mono">
-                    DAY {daysPassed}
+                    {daysPassed} 日
                   </span>
+                </div>
+
+                {/* Time-of-day chip + slot pips */}
+                <div className="flex items-center gap-2">
+                  <span className={`font-semibold px-2 py-0.5 rounded border font-mono ${
+                    currentTimeOfDay === "night"
+                      ? "text-indigo-300 bg-indigo-950/50 border-indigo-800/40"
+                      : currentTimeOfDay === "noon"
+                      ? "text-amber-300 bg-amber-950/40 border-amber-800/40"
+                      : "text-cyan-300 bg-cyan-950/40 border-cyan-800/40"
+                  }`}>
+                    {getTimeOfDayLabel(currentTimeOfDay)}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-[11px]" title="今日時段進度 (早/午/晚)">
+                    {TIME_ORDER.map((_, i) => (
+                      <span key={i} className={timeSlotIndex > i ? "text-emerald-400" : "text-slate-600"}>
+                        {timeSlotIndex > i ? "●" : "○"}
+                      </span>
+                    ))}
+                  </span>
+                  {isDayExhausted && (
+                    <span className="text-[10px] text-rose-400 font-bold animate-pulse">需要休息</span>
+                  )}
                 </div>
               </div>
             </header>
@@ -2296,8 +2658,8 @@ export default function App() {
               <div className="space-y-4">
                 
                 {/* Visual command selection tab group */}
-                <div className="grid grid-cols-4 gap-1.5 font-mono text-center">
-                  
+                <div className="grid grid-cols-5 gap-1.5 font-mono text-center">
+
                   <button
                     id="btn-tab-explore"
                     onClick={() => { setActiveTab("explore"); setItemUsageTargetSelector({ isOpen: false, item: null }); }}
@@ -2350,6 +2712,19 @@ export default function App() {
                     <span>公會公告</span>
                   </button>
 
+                  <button
+                    id="btn-tab-exchange"
+                    onClick={() => { setActiveTab("exchange"); setItemUsageTargetSelector({ isOpen: false, item: null }); }}
+                    className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      activeTab === "exchange"
+                        ? "bg-yellow-950/40 border-yellow-500 text-yellow-400 font-bold shadow-lg shadow-yellow-950"
+                        : "bg-slate-950 border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Coins className="w-4 h-4" />
+                    <span>星區交易所</span>
+                  </button>
+
                 </div>
 
                 <hr className="border-slate-850 my-1" />
@@ -2359,7 +2734,28 @@ export default function App() {
                   <div className="space-y-3 font-mono">
                     <div className="bg-slate-950 border border-slate-850 px-3 py-2 rounded-lg text-xs leading-relaxed text-slate-400">
                       <p className="font-semibold text-slate-200 mb-1">🧭 副本祕境探索部署 (Deploy Radar)</p>
-                      選擇下方深空座標信號，點選「出戰群體打怪」隨即切換重整進攻面板。注意等級限制！
+                      選擇下方深空座標信號，點選「出戰群體打怪」隨即切換重整進攻面板。注意等級限制！每日 3 段出擊 (早/午/晚)，用完需休息。
+                    </div>
+
+                    {/* Time-of-day modifier hint */}
+                    <div className={`px-3 py-2 rounded-lg text-[11px] leading-relaxed border font-sans ${
+                      isDayExhausted
+                        ? "bg-rose-950/30 border-rose-800/40 text-rose-300"
+                        : currentTimeOfDay === "night"
+                        ? "bg-indigo-950/30 border-indigo-800/40 text-indigo-200"
+                        : currentTimeOfDay === "noon"
+                        ? "bg-amber-950/25 border-amber-800/40 text-amber-200"
+                        : "bg-cyan-950/25 border-cyan-800/40 text-cyan-200"
+                    }`}>
+                      <span className="font-bold font-mono">{isDayExhausted ? "🌙 需要休息" : getTimeOfDayLabel(currentTimeOfDay)}</span>
+                      {" — "}
+                      {isDayExhausted
+                        ? "今日 3 段行程已用盡，請至太空酒館休息或野外紮營以開啟新一天。"
+                        : currentTimeOfDay === "night"
+                        ? "夜晚：魔物強化 +25%，稀有掉落率上升，可能遭遇夜行魔物/夜域主；獎勵 EXP/Gold +20%。"
+                        : currentTimeOfDay === "noon"
+                        ? "午間：戰鬥勝利 Gold 獎勵 +15%。"
+                        : "早晨：基準時段，無額外增益。"}
                     </div>
 
                     {/* NEW: Stellar Signal Decryption Widget */}
@@ -2382,7 +2778,11 @@ export default function App() {
                         {LORE_RECORDS.map((log) => {
                           const isDecrypted = decryptedLogIds.includes(log.id);
                           const leaderLevel = party[0]?.lv || 1;
-                          const isUnlockable = leaderLevel >= log.unlockedAtLv;
+                          // Chapter-gated records use main-line progress; others use leader level.
+                          const isUnlockable =
+                            log.unlockedAtChapter !== undefined
+                              ? currentChapter >= log.unlockedAtChapter
+                              : leaderLevel >= log.unlockedAtLv;
 
                           if (isDecrypted) {
                             return (
@@ -2409,9 +2809,17 @@ export default function App() {
                                 onClick={() => {
                                   const updated = [...decryptedLogIds, log.id];
                                   setDecryptedLogIds(updated);
-                                  log.getReward(setGold, setMaterials);
+                                  // Apply reward deltas synchronously → no stale save
+                                  const reward = log.getReward();
+                                  const nextGold = gold + reward.gold;
+                                  const nextMaterials = { ...materials };
+                                  for (const k of Object.keys(reward.materials)) {
+                                    nextMaterials[k] = (nextMaterials[k] || 0) + reward.materials[k];
+                                  }
+                                  setGold(nextGold);
+                                  setMaterials(nextMaterials);
                                   addLog(`🔓 [星曆破譯] ${log.codename} 成功還原星區背景! 獲得：${log.rewardText}`, "system");
-                                  triggerAutosave(gold, party, quests, items, activeZoneId, statistics, materials, craftedArtifactIds, claimedAchievementIds, updated);
+                                  triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, nextMaterials, craftedArtifactIds, claimedAchievementIds, updated);
                                 }}
                                 className="p-2 bg-[#091e33]/40 text-cyan-400 border border-cyan-500/40 rounded-lg hover:bg-[#0f2a47] text-left transition-all cursor-pointer flex flex-col justify-between h-[64px] animate-pulse"
                                 title="點擊破譯獲取資源"
@@ -2440,7 +2848,7 @@ export default function App() {
                                   信號未解禁
                                 </span>
                                 <span className="text-[8px] text-red-500/80 font-mono self-end">
-                                  先鋒需達 Lv.{log.unlockedAtLv}
+                                  {log.unlockedAtChapter !== undefined ? `需推進主線至 Ch.${log.unlockedAtChapter}` : `先鋒需達 Lv.${log.unlockedAtLv}`}
                                 </span>
                               </div>
                             );
@@ -2537,6 +2945,109 @@ export default function App() {
                   </div>
                 )}
 
+                {/* TAB WINDOW COMPONENT: TRADING POST (EXCHANGE) */}
+                {activeTab === "exchange" && (
+                  <div className="space-y-3 font-mono">
+                    <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                      <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-yellow-400" /> 星區交易所 (Trading Post)
+                      </p>
+                      買賣宇宙材料、出售掉落裝備。每日刷新限定特賣（每次休息 / 紮營更新）。
+                    </div>
+
+                    {/* Daily limited stock */}
+                    <div className="p-2.5 bg-slate-900 border border-yellow-500/20 rounded-xl space-y-2">
+                      <div className="text-[11px] font-bold text-yellow-400 uppercase">🪙 今日限定特賣 (Day {daysPassed})</div>
+                      {exchangeStock.length === 0 ? (
+                        <div className="text-[10px] text-slate-500">今日特賣已售罄，明日再來！</div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {exchangeStock.map((entry, i) => {
+                            const tmpl = entry.kind === "gear" ? GEAR_TEMPLATES[entry.id] : items.find((it) => it.id === entry.id);
+                            const label = entry.kind === "gear" ? GEAR_TEMPLATES[entry.id]?.name : `${(tmpl as Item)?.emoji || ""} ${(tmpl as Item)?.name || entry.id}`;
+                            return (
+                              <div key={i} className="flex items-center justify-between bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5">
+                                <span className="text-[11px] text-slate-200">
+                                  {entry.kind === "gear" ? "🛡️" : "🧪"} {label}
+                                  {entry.rarity && <span className="ml-1 text-[9px] text-slate-400">[{GEAR_RARITY_LABEL[entry.rarity as GearRarity]}]</span>}
+                                </span>
+                                <button
+                                  onClick={() => buyFromExchangeStock(i)}
+                                  disabled={gold < entry.price}
+                                  className={`text-[10px] px-2 py-1 rounded border font-bold ${gold < entry.price ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-slate-950 cursor-pointer"}`}
+                                >
+                                  {entry.price} ✨
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Materials buy / sell */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-bold text-slate-300 uppercase pt-1">💎 宇宙材料 (買 ×1.5 / 賣 ×0.5)</div>
+                      {Object.entries(MATERIALS).map(([id, mat]) => {
+                        const owned = materials[id] || 0;
+                        const buyP = materialBuyPrice(mat.rarity);
+                        const sellP = materialSellPrice(mat.rarity);
+                        return (
+                          <div key={id} className="flex items-center justify-between bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5">
+                            <span className="text-[11px] text-slate-200 flex items-center gap-1">
+                              {mat.emoji} {mat.name}
+                              <span className="text-[9px] text-slate-500">x{owned}</span>
+                            </span>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => buyMaterial(id)}
+                                disabled={gold < buyP}
+                                className={`text-[10px] px-2 py-1 rounded border font-bold ${gold < buyP ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-emerald-700 border-emerald-800 hover:bg-emerald-600 text-white cursor-pointer"}`}
+                              >
+                                買 {buyP}
+                              </button>
+                              <button
+                                onClick={() => sellMaterial(id)}
+                                disabled={owned <= 0}
+                                className={`text-[10px] px-2 py-1 rounded border font-bold ${owned <= 0 ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
+                              >
+                                賣 {sellP}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Gear sell */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-bold text-slate-300 uppercase pt-1">🛡️ 出售掉落裝備</div>
+                      {gearInventory.length === 0 ? (
+                        <div className="text-[10px] text-slate-500">裝備庫是空的，去狩獵掉落裝備吧！</div>
+                      ) : (
+                        gearInventory.map((g) => {
+                          const equipped = party.some((m) => m.equipment[g.slot].gearUid === g.uid);
+                          return (
+                            <div key={g.uid} className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 border ${GEAR_RARITY_COLOR[g.rarity]}`}>
+                              <span className="text-[11px] flex items-center gap-1">
+                                {g.slot === "weapon" ? "⚔️" : "🛡️"} {g.name}
+                                <span className="text-[9px] opacity-70">[{GEAR_RARITY_LABEL[g.rarity]}]</span>
+                              </span>
+                              <button
+                                onClick={() => sellGear(g.uid)}
+                                disabled={equipped}
+                                className={`text-[10px] px-2 py-1 rounded border font-bold ${equipped ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
+                              >
+                                {equipped ? "裝備中" : `賣 ${gearSellValue(g)} ✨`}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* TAB WINDOW COMPONENT 2: TAVERN RECRUITMENT */}
                 {activeTab === "tavern" && (
                   <div className="space-y-3 font-mono">
@@ -2552,7 +3063,15 @@ export default function App() {
                       className="w-full bg-[#1b2b2b] hover:bg-[#253d3d] text-emerald-400 border border-emerald-900 py-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold font-mono tracking-wider transition-all cursor-pointer shadow-md shadow-inner"
                     >
                       <Coffee className="w-4 h-4 text-emerald-400" />
-                      💤 客棧修整 (Tavern Rest) (花費 {party.length * 15} 金幣)
+                      💤 客棧修整 (Tavern Rest) — 全恢復・天數+1 (花費 {party.length * 15} 金幣)
+                    </button>
+
+                    {/* 野外紮營 — free anti-softlock rest */}
+                    <button
+                      onClick={campRest}
+                      className="w-full bg-[#26221b] hover:bg-[#37301f] text-amber-300 border border-amber-900/60 py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold font-mono tracking-wider transition-all cursor-pointer shadow-inner"
+                    >
+                      🏕️ 野外紮營 (Camp) — 恢復 30% HP/MP・天數+1 (免費)
                     </button>
 
                     <h4 className="text-xs font-bold text-slate-400 pt-2 flex items-center gap-1 uppercase tracking-wider">
@@ -2625,10 +3144,10 @@ export default function App() {
                   <div className="space-y-3 font-mono">
                     
                     {/* Smithy Sub-Tabs Navigation */}
-                    <div className="grid grid-cols-3 gap-1">
+                    <div className="grid grid-cols-4 gap-1">
                       <button
                         onClick={() => setSmithySubTab("forge")}
-                        className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "forge"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
                             : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
@@ -2637,8 +3156,18 @@ export default function App() {
                         🏪 戰備物資
                       </button>
                       <button
+                        onClick={() => setSmithySubTab("gear")}
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer relative ${
+                          smithySubTab === "gear"
+                            ? "bg-amber-500 border-amber-600 text-slate-950"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                        }`}
+                      >
+                        🛡️ 裝備庫{gearInventory.length > 0 ? ` (${gearInventory.length})` : ""}
+                      </button>
+                      <button
                         onClick={() => setSmithySubTab("alchemy")}
-                        className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "alchemy"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
                             : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
@@ -2648,7 +3177,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={() => setSmithySubTab("awaken")}
-                        className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                        className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "awaken"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
                             : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
@@ -2657,6 +3186,67 @@ export default function App() {
                         ☀️ 聖格覺醒
                       </button>
                     </div>
+
+                    {smithySubTab === "gear" && (
+                      <div className="space-y-3">
+                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                          <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
+                            🛡️ 戰備裝備庫 (Gear Vault)
+                          </p>
+                          狩獵掉落的武器與防具收藏於此。為隊員裝備可即時替換屬性加成（換裝可逆，舊裝備保留）。出售請至交易所。
+                        </div>
+
+                        {gearInventory.length === 0 ? (
+                          <div className="text-center text-[11px] text-slate-500 py-6 border border-dashed border-slate-800 rounded-lg">
+                            尚無掉落裝備。擊敗精英 / 域主魔物有機會獲得稀有裝備！夜晚掉落率更高。
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {gearInventory.map((g) => {
+                              const equippedBy = party.find((m) => m.equipment[g.slot].gearUid === g.uid);
+                              return (
+                                <div key={g.uid} className={`p-2.5 rounded-lg border ${GEAR_RARITY_COLOR[g.rarity]}`}>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold flex items-center gap-1">
+                                      {g.slot === "weapon" ? "⚔️" : "🛡️"} {g.name}
+                                      <span className="text-[9px] px-1 rounded border opacity-80">{GEAR_RARITY_LABEL[g.rarity]}</span>
+                                    </span>
+                                    {equippedBy && (
+                                      <span className="text-[9px] text-emerald-400 font-mono">● 裝備中：{equippedBy.name.split(" ")[0]}</span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-300 font-mono mt-1">
+                                    {g.atkBonus > 0 && <span className="mr-2">⚔️ ATK +{g.atkBonus}</span>}
+                                    {g.defBonus > 0 && <span className="mr-2">🛡️ DEF +{g.defBonus}</span>}
+                                    {g.hpBonus > 0 && <span className="mr-2">❤️ HP +{g.hpBonus}</span>}
+                                    {g.element && <span className="opacity-70">({getElementEmoji(g.element)})</span>}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {party.map((m) => {
+                                      const isOn = m.equipment[g.slot].gearUid === g.uid;
+                                      return (
+                                        <button
+                                          key={m.id}
+                                          onClick={() => equipGear(m.id, g.uid)}
+                                          disabled={isOn}
+                                          className={`text-[10px] px-2 py-1 rounded border font-mono cursor-pointer transition-all ${
+                                            isOn
+                                              ? "bg-emerald-900/40 border-emerald-700 text-emerald-300 cursor-not-allowed"
+                                              : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800"
+                                          }`}
+                                        >
+                                          {isOn ? "✓ " : "裝備→"}{m.name.split(" ")[0]}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {smithySubTab === "forge" && (
                       <div className="space-y-3">
@@ -2896,16 +3486,51 @@ export default function App() {
                       <div className="space-y-3">
                         <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
-                            <Scroll className="w-3.5 h-3.5 text-emerald-400" /> 公會告示任務中心 (Quest Board)
+                            <Scroll className="w-3.5 h-3.5 text-emerald-400" /> 公會告示任務中心 (Quest Board) · 主線 Ch.{currentChapter}
                           </p>
                           接受指令並自動累計進度。凡是達成指標（亮起綠燈），即可隨時秒速回執領取海量金幣與共用經驗！
                         </div>
 
+                        {/* Quest kind tabs */}
+                        <div className="grid grid-cols-3 gap-1">
+                          {([["main", "🌠 主線"], ["side", "📜 支線"], ["daily", "🌅 每日"]] as const).map(([k, label]) => (
+                            <button
+                              key={k}
+                              onClick={() => setQuestKindTab(k)}
+                              className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
+                                questKindTab === k
+                                  ? "bg-emerald-500 border-emerald-600 text-slate-950"
+                                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+
                         <div className="space-y-2.5">
-                          {quests.map((q) => {
+                          {quests
+                            .filter((q) => q.kind === questKindTab)
+                            .sort((a, b) => (a.chapter ?? 0) - (b.chapter ?? 0))
+                            .map((q) => {
                             const isReady = q.status === "ready";
                             const isCompleted = q.status === "completed";
+                            const isLocked = q.isUnlocked === false && !isCompleted;
                             const percent = Math.min(100, Math.round((q.currentValue / q.targetValue) * 100));
+
+                            if (isLocked) {
+                              return (
+                                <div key={q.id} className="p-3 rounded-lg border bg-slate-950/30 border-slate-900 opacity-60">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <h4 className="font-mono font-bold text-slate-500">🔒 {q.title}</h4>
+                                    <span className="text-[9px] text-rose-400/80 font-mono">
+                                      {q.kind === "main" ? "完成前一章節解鎖" : `需推進主線至 Ch.${q.chapter ?? 1}`}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-600 mt-1 font-sans">尚未解鎖此開拓指令。</p>
+                                </div>
+                              );
+                            }
 
                             return (
                               <div
@@ -2940,6 +3565,13 @@ export default function App() {
                                 <p className="text-[11px] text-slate-400 leading-snug font-sans mb-2">
                                   {q.description}
                                 </p>
+
+                                {/* Story narrative (main line) */}
+                                {q.kind === "main" && (q.storyBefore || (isCompleted && q.storyAfter)) && (
+                                  <p className="text-[10px] text-indigo-300/80 italic leading-snug font-sans mb-2 border-l-2 border-indigo-800/50 pl-2">
+                                    📖 {isCompleted && q.storyAfter ? q.storyAfter : q.storyBefore}
+                                  </p>
+                                )}
 
                                 {/* Live progression tracking */}
                                 {!isCompleted && (
@@ -3192,6 +3824,8 @@ export default function App() {
                     const isFainted = com.hp <= 0 || com.isDead;
                     const weaponCost = com.equipment.weapon.level * 25;
                     const armorCost = com.equipment.armor.level * 25;
+                    const weaponChancePct = Math.round(forgeSuccessChance(com.equipment.weapon.level, com.id, "weapon") * 100);
+                    const armorChancePct = Math.round(forgeSuccessChance(com.equipment.armor.level, com.id, "armor") * 100);
 
                     return (
                       <div
@@ -3304,6 +3938,7 @@ export default function App() {
                             >
                               <span className="font-semibold text-[11px]">🔨 強化武器</span>
                               <span className="text-[9px] text-slate-500">Lvl.{com.equipment.weapon.level}➔{com.equipment.weapon.level + 1} ({weaponCost}金幣)</span>
+                              <span className={`text-[9px] font-bold ${weaponChancePct >= 70 ? "text-emerald-400" : weaponChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {weaponChancePct}%</span>
                             </button>
 
                             <button
@@ -3317,6 +3952,7 @@ export default function App() {
                             >
                               <span className="font-semibold text-[11px]">🛡️ 強化護甲</span>
                               <span className="text-[9px] text-slate-500">Lvl.{com.equipment.armor.level}➔{com.equipment.armor.level + 1} ({armorCost}金幣)</span>
+                              <span className={`text-[9px] font-bold ${armorChancePct >= 70 ? "text-emerald-400" : armorChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {armorChancePct}%</span>
                             </button>
                           </div>
                         )}
