@@ -286,3 +286,87 @@ dailyQuestDate: number;            // daysPassed when dailies last refreshed
 - Save export/import (string code) — high value given localStorage fragility.
 - SFX/BGM toggle. Party reorder. Mobile layout pass.
 - Full base/derived stat refactor for clean gear equipping.
+
+---
+
+## Appendix A — Quick reference: where everything lives
+
+> Line numbers are as of commit `f474bed` (the commit that added this doc). They drift as you edit — treat them as "jump-near here", and confirm by searching the symbol name. All in `src/App.tsx` unless noted.
+
+### Key symbols & anchors (current line numbers)
+| Symbol / anchor | Line | File |
+|---|---|---|
+| `interface LoreRecord` + `LORE_RECORDS` data | 75 | App.tsx |
+| state: `gold/daysPassed/party/quests/items/activeZoneId/statistics` | ~146 | App.tsx |
+| state: `materials/craftedArtifactIds/claimedAchievementIds/activeSpaceEvent` | ~159 | App.tsx |
+| state: `activeTab` (explore/tavern/blacksmith/quests) | 170 | App.tsx |
+| state: `questsSubTab` / `smithySubTab` | 171–172 | App.tsx |
+| **load** save (`localStorage.getItem`) — hydrate new fields here | 258 | App.tsx |
+| `triggerAutosave` (writes save) — add new fields here | 309 | App.tsx |
+| `localStorage.setItem` inside triggerAutosave | 335 | App.tsx |
+| `resetGame` | 353 | App.tsx |
+| `checkQuestMilestone` | 384 | App.tsx |
+| `claimQuestReward` (has duplicated level-up loop) | 415 | App.tsx |
+| `upgradeGear` ← **Stage 3 success rate + pity** | 490 | App.tsx |
+| `awakenCharacter` | 553 | App.tsx |
+| `craftArtifact` | 623 | App.tsx |
+| `claimAchievement` | 689 | App.tsx |
+| `buyConsumable` / `sellConsumable` | 724 / 750 | App.tsx |
+| `restAtTavern` ← **Stage 1 day advance + FIX stale `daysPassed` save** | 772 | App.tsx |
+| `recruitCompanion` | 797 | App.tsx |
+| `startCombat` ← **Stage 1 slot guard + Stage 2 spawn picker** | 848 | App.tsx |
+| `handleSpaceEventChoice` ← **Stage 1 advance slot + FIX stale `items` save (~line 1055)** | 910 | App.tsx |
+| `executeAllyAction` (inline damage formula, skill/item) | 1059 | App.tsx |
+| `passTurnToNextColleague` | 1292 | App.tsx |
+| `executeMonsterTurn` (Phoenix Lens revive already here) | 1333 | App.tsx |
+| `winBattle` ← **Stage 1 noon gold + Stage 2 drop table; has level-up loop** | 1429 | App.tsx |
+| `loseBattle` / `escapeCombat` ← **Stage 1 advance slot** | 1547 / 1577 | App.tsx |
+| `useItemOutOfCombat` | 1618 | App.tsx |
+| `<header>` (top bar) ← **Stage 1 day + time-of-day chip + slot pips** | 1814 | App.tsx |
+| `<main id="station-cabinet-main-scroller">` | 1850 | App.tsx |
+| TOWN VIEW container | 2290 | App.tsx |
+| tab buttons (`setActiveTab(...)`) ← **Stage 3 add `"exchange"` tab button here** | 2303–2344 | App.tsx |
+| `activeTab === "explore"` panel ← **Stage 1 time hint on zone select** | 2358 | App.tsx |
+| `activeTab === "tavern"` panel ← **Stage 1 add Camp button near rest** | 2541 | App.tsx |
+| `activeTab === "blacksmith"` panel (forge/alchemy/awaken subtabs) ← **Stage 3 show success %** | 2624 | App.tsx |
+| `LORE_RECORDS.map` decrypt UI ← **Stage 4 chapter gating + FIX stale save (~line 2414)** | 2382 | App.tsx |
+| `activeTab === "quests"` panel ← **Stage 4 main/side/daily tabs** | 2868 | App.tsx |
+| `<footer>` (stats bar) | 3343 | App.tsx |
+
+### data.ts (static data — most ADD work lands here)
+| Symbol | Line | Stage |
+|---|---|---|
+| `getElementRelation` / emoji / label / color | 4–65 | — (reuse) |
+| `SHOP_ITEMS` ← add new potions | 76 | 2 |
+| `RECRUITABLE_COMPANIONS` / `HERO_INITIAL` | 110 / 221 | — |
+| `MONSTER_TEMPLATES` ← add monsters + `tier`/`timeAvailability`/`dropTable` | 250 | 2 |
+| `ZONES` ← richer monster lists | 368 | 2 |
+| `MATERIALS` | 427 | 2/3 |
+| `ARTIFACTS` | 455 | — |
+| `ACHIEVEMENTS` | 503 | 4 |
+| `RANDOM_EVENTS` | 543 | — |
+| `INITIAL_QUESTS` ← split into MAIN/SIDE/DAILY pools | 633 | 4 |
+| **NEW:** `applyExpGain()` helper (extract level-up loop) | — | cross-cutting |
+| **NEW:** `GEAR_TEMPLATES`, gear-roll helpers | — | 2 |
+
+### types.ts (extend these interfaces)
+| Type | Line | Add |
+|---|---|---|
+| `Skill` / `Equipment` / `Character` | 3 / 11 / 22 | (gear bonus tracking on Equipment for swaps — Stage 2) |
+| `MonsterTemplate` | 42 | `tier`, `timeAvailability`, `dropTable` (Stage 2) |
+| `Quest` | 69 | `kind`, `chapter`, `prerequisiteQuestId`, `storyBefore/After`, `isUnlocked`, `targetMonsterId?`, `targetMaterialId?` (Stage 4) |
+| `Item` | 93 | (maybe `buffPct` for tonic — Stage 2) |
+| `GameSave` | 153 | `saveVersion`, `timeSlotIndex`, `gearInventory`, `forgePity`, `completedQuestIds`, `currentChapter`, `dailyQuestDate` (across stages) |
+| **NEW** | — | `TimeOfDay`, `MonsterTier`, `DropEntry`, `GearRarity`, `GearTemplate`, `DroppedGear` |
+
+### Per-stage "touch list" (the short version)
+- **Stage 1:** types(`TimeOfDay`,`GameSave`) → state(`timeSlotIndex`) → load@258 + triggerAutosave@309/335 → `startCombat`@848 (guard) → `winBattle/loseBattle/escapeCombat` + `handleSpaceEventChoice` (advance slot) → `restAtTavern`@772 (+camp) → `<header>`@1814 + explore panel@2358 + tavern panel@2541 (UI).
+- **Stage 2:** types(`MonsterTier`,`DropEntry`,gear types,`MonsterTemplate`,`GameSave.gearInventory`) → data(`MONSTER_TEMPLATES`@250, `ZONES`@368, `SHOP_ITEMS`@76, new `GEAR_TEMPLATES`) → `startCombat`@848 spawn picker → `winBattle`@1429 drop block → gear inventory UI (new sub-panel).
+- **Stage 3:** types(`GameSave.forgePity`) → `upgradeGear`@490 (success/pity) + blacksmith UI@2624 (show %) → new `"exchange"` tab button@2303 + new exchange panel + sell-gear UI.
+- **Stage 4:** types(`Quest` ext, `GameSave` quest fields) → data(`INITIAL_QUESTS`@633 → MAIN/SIDE/DAILY, more `LORE_RECORDS`@89) → `checkQuestMilestone`@384 + `claimQuestReward`@415 (chapter advance, collect/slay-specific counting in `winBattle`@1429) → quests panel@2868 (tabs) + lore gating@2382.
+
+### Sanity gate (run after each stage)
+```bash
+npm run lint && npm run build
+```
+Both must pass before committing the stage.
