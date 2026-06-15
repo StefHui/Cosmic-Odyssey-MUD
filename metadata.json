@@ -1,0 +1,6 @@
+{
+  "name": "Cosmic Odyssey MUD",
+  "description": "A high-quality, full-featured retro JRPG / MUD text adventure game set in a deep space elements-matching world. Featuring dynamic turn-based combat, recruiting, shop upgrades, blacksmith crafting, quests, auto-saving, and fully responsive layouts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

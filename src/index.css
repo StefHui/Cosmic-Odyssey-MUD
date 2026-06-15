@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;550;600;700&family=JetBrains+Mono:wght@400;550;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer utilities {
+  .float-anime-up {
+    animation: floatUpFade 0.65s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  }
+  .animate-shake-hurt {
+    animation: shakeHurt 0.5s ease-in-out;
+  }
+  .animate-shake-heal {
+    animation: shakeHeal 0.5s ease-in-out;
+  }
+}
+
+@keyframes shakeHurt {
+  0%, 100% { transform: translateX(0); filter: brightness(1); }
+  10%, 90% { filter: brightness(1.25) contrast(1.2); }
+  20%, 40%, 60%, 80% { transform: translateX(-6px); }
+  30%, 50%, 70% { transform: translateX(6px); }
+}
+
+@keyframes shakeHeal {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); filter: brightness(1.2) contrast(1.1); }
+}
+
+@keyframes floatUpFade {
+  0% {
+    transform: translate(-50%, -20%) scale(0.6);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    transform: translate(-50%, -100%) scale(0.9);
+    opacity: 0;
+  }
+}
+
