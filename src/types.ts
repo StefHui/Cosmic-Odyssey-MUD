@@ -1,5 +1,8 @@
 export type ElementType = "Fire" | "Plant" | "Earth" | "Electric" | "Water";
 
+// 早午晚 — day is split into 3 time slots, each with its own gameplay effects.
+export type TimeOfDay = "morning" | "noon" | "night";
+
 export interface Skill {
   name: string;
   mpCost: number;
@@ -151,8 +154,10 @@ export interface BattleLog {
 }
 
 export interface GameSave {
+  saveVersion?: number; // bumped when the save shape changes; merge-defaults on load
   gold: number;
   daysPassed: number;
+  timeSlotIndex?: number; // 0=morning, 1=noon, 2=night, 3=day exhausted
   party: Character[];
   unlockedCompanions: string[]; // companion classes available to recruit OR recruit log
   quests: Quest[];

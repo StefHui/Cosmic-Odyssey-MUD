@@ -1,4 +1,63 @@
-import { Character, MonsterTemplate, Zone, Quest, Item, ElementType, Material, Artifact, Achievement, SpaceEvent } from "./types";
+import { Character, MonsterTemplate, Zone, Quest, Item, ElementType, Material, Artifact, Achievement, SpaceEvent, TimeOfDay } from "./types";
+
+// --- Day / Time-of-Day ordering & UI labels (早午晚) ---
+export const TIME_ORDER: TimeOfDay[] = ["morning", "noon", "night"];
+
+export function getTimeOfDayLabel(t: TimeOfDay): string {
+  switch (t) {
+    case "morning": return "☀️ 早晨";
+    case "noon": return "🌤️ 午間";
+    case "night": return "🌙 夜晚";
+  }
+}
+
+// Shared level-up loop. Returns a fresh leveled-up member plus whether it leveled.
+// Extracted so the curve lives in ONE place (winBattle / claimQuestReward / storm event reuse this).
+export function applyExpGain(
+  member: Character,
+  exp: number
+): { member: Character; leveledUp: boolean; newLv: number } {
+  let currentExp = member.exp + exp;
+  let nextLv = member.lv;
+  let nextMaxExp = member.maxExp;
+  let nextHp = member.hp;
+  let nextMaxHp = member.maxHp;
+  let nextMp = member.mp;
+  let nextMaxMp = member.maxMp;
+  let nextAtk = member.atk;
+  let nextDef = member.def;
+  let leveledUp = false;
+
+  while (currentExp >= nextMaxExp) {
+    currentExp -= nextMaxExp;
+    nextLv += 1;
+    nextMaxExp = Math.round(nextMaxExp * 1.5);
+    nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
+    nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
+    nextAtk = nextAtk + 4;
+    nextDef = nextDef + 2;
+    nextHp = nextMaxHp; // full heal on level up
+    nextMp = nextMaxMp;
+    leveledUp = true;
+  }
+
+  return {
+    member: {
+      ...member,
+      lv: nextLv,
+      exp: currentExp,
+      maxExp: nextMaxExp,
+      hp: nextHp,
+      maxHp: nextMaxHp,
+      mp: nextMp,
+      maxMp: nextMaxMp,
+      atk: nextAtk,
+      def: nextDef
+    },
+    leveledUp,
+    newLv: nextLv
+  };
+}
 
 // Get elemental relation details
 export function getElementRelation(

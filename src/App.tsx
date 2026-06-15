@@ -67,7 +67,10 @@ import {
   MATERIALS,
   ARTIFACTS,
   ACHIEVEMENTS,
-  RANDOM_EVENTS
+  RANDOM_EVENTS,
+  TIME_ORDER,
+  getTimeOfDayLabel,
+  applyExpGain
 } from "./data";
 
 import ElementChart from "./components/ElementChart";
@@ -145,6 +148,8 @@ export default function App() {
   // --- Game Core States ---
   const [gold, setGold] = useState<number>(150);
   const [daysPassed, setDaysPassed] = useState<number>(1);
+  // 🌅 Day & time-of-day: 0=morning, 1=noon, 2=night, 3=day exhausted (must rest/camp)
+  const [timeSlotIndex, setTimeSlotIndex] = useState<number>(0);
   const [party, setParty] = useState<Character[]>([HERO_INITIAL]);
   const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
   const [items, setItems] = useState<Item[]>(SHOP_ITEMS);
@@ -187,6 +192,10 @@ export default function App() {
   const [decryptedLogIds, setDecryptedLogIds] = useState<string[]>([]);
   const [activeLoreDetail, setActiveLoreDetail] = useState<any | null>(null);
   const [isLoreTerminalOpen, setIsLoreTerminalOpen] = useState<boolean>(false);
+
+  // --- Derived time-of-day (clamped so exhausted index 3 still maps to a label) ---
+  const currentTimeOfDay = TIME_ORDER[Math.min(timeSlotIndex, TIME_ORDER.length - 1)];
+  const isDayExhausted = timeSlotIndex >= TIME_ORDER.length;
 
   // --- Helper to check if an entity was recently hit or healed to trigger shake/glow animations ---
   const isRecentlyAttacked = (idx: number, isMonster: boolean) => {
@@ -261,6 +270,8 @@ export default function App() {
         const parsed: GameSave = JSON.parse(saved);
         if (parsed.gold !== undefined) setGold(parsed.gold);
         if (parsed.daysPassed !== undefined) setDaysPassed(parsed.daysPassed);
+        // merge-defaults for fields added in saveVersion 1 (old saves lack timeSlotIndex)
+        if (parsed.timeSlotIndex !== undefined) setTimeSlotIndex(parsed.timeSlotIndex);
         if (parsed.party && parsed.party.length > 0) setParty(parsed.party);
         if (parsed.quests) setQuests(parsed.quests);
         if (parsed.items) {
@@ -316,11 +327,15 @@ export default function App() {
     currentMaterials?: Record<string, number>,
     currentArtifacts?: string[],
     currentAchievements?: string[],
-    currentDecryptedLogs?: string[]
+    currentDecryptedLogs?: string[],
+    currentDaysPassed?: number,
+    currentTimeSlotIndex?: number
   ) => {
     const data: GameSave = {
+      saveVersion: 1,
       gold: currentGold,
-      daysPassed,
+      daysPassed: currentDaysPassed ?? daysPassed,
+      timeSlotIndex: currentTimeSlotIndex ?? timeSlotIndex,
       party: currentParty,
       quests: currentQuests,
       items: currentItems,
@@ -349,12 +364,26 @@ export default function App() {
     ]);
   };
 
+  // Advance one time-of-day slot when a venture resolves. Returns the new slot index
+  // so callers can thread it into triggerAutosave (avoiding the stale-closure save bug).
+  const advanceTimeSlot = (): number => {
+    const next = timeSlotIndex + 1;
+    setTimeSlotIndex(next);
+    if (next >= TIME_ORDER.length) {
+      addLog(`🌙 今日行程已盡，隊伍精疲力竭。請前往太空酒館休息，或就地野外紮營以迎接新一天。`, "system");
+    } else {
+      addLog(`⏳ 時段推進 → ${getTimeOfDayLabel(TIME_ORDER[next])}。`, "system");
+    }
+    return next;
+  };
+
   // --- Reset Game Flow ---
   const resetGame = () => {
     localStorage.removeItem("COSMIC_ODYSSEY_SAVE_STATE");
     setHasSave(false);
     setGold(150);
     setDaysPassed(1);
+    setTimeSlotIndex(0);
     setParty([HERO_INITIAL]);
     setQuests(INITIAL_QUESTS);
     setItems(SHOP_ITEMS.map(i => ({ ...i, count: 0 })));
@@ -429,47 +458,11 @@ export default function App() {
 
     // Distribute EXP to all party members
     const nextParty = party.map(member => {
-      let currentExp = member.exp + quest.rewardExp;
-      let nextLv = member.lv;
-      let nextMaxExp = member.maxExp;
-      let nextHp = member.hp;
-      let nextMaxHp = member.maxHp;
-      let nextMp = member.mp;
-      let nextMaxMp = member.maxMp;
-      let nextAtk = member.atk;
-      let nextDef = member.def;
-      let leveledUp = false;
-
-      while (currentExp >= nextMaxExp) {
-        currentExp -= nextMaxExp;
-        nextLv += 1;
-        nextMaxExp = Math.round(nextMaxExp * 1.5);
-        // Upgrades
-        nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
-        nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
-        nextAtk = nextAtk + 4;
-        nextDef = nextDef + 2;
-        nextHp = nextMaxHp; // Fully heal on level up
-        nextMp = nextMaxMp;
-        leveledUp = true;
-      }
-
+      const { member: leveled, leveledUp, newLv } = applyExpGain(member, quest.rewardExp);
       if (leveledUp) {
-        addLog(`💫 ✨ 飛躍成長！隊員【${member.name}】晉升至 LV.${nextLv}！基礎戰力大幅攀升！`, "victory");
+        addLog(`💫 ✨ 飛躍成長！隊員【${member.name}】晉升至 LV.${newLv}！基礎戰力大幅攀升！`, "victory");
       }
-
-      return {
-        ...member,
-        lv: nextLv,
-        exp: currentExp,
-        maxExp: nextMaxExp,
-        hp: nextHp,
-        maxHp: nextMaxHp,
-        mp: nextMp,
-        maxMp: nextMaxMp,
-        atk: nextAtk,
-        def: nextDef
-      };
+      return leveled;
     });
 
     setParty(nextParty);
@@ -778,7 +771,10 @@ export default function App() {
 
     const nextGold = gold - cost;
     setGold(nextGold);
-    setDaysPassed((d) => d + 1);
+    // New day: reset to morning. (Compute next day explicitly so the save isn't off-by-one.)
+    const nextDay = daysPassed + 1;
+    setDaysPassed(nextDay);
+    setTimeSlotIndex(0);
 
     const nextParty = party.map((m) => ({
       ...m,
@@ -788,9 +784,28 @@ export default function App() {
     }));
     setParty(nextParty);
 
-    addLog(`🛌 隊伍集體下線，在太空旅店休眠艙進行了深度保養與充能。全員生命值 (HP) 與法力值 (MP) 充能完畢！(天數 +1, 花費 ${cost} 金幣)`, "player_action");
+    addLog(`🛌 隊伍集體下線，在太空旅店休眠艙進行了深度保養與充能。全員生命值 (HP) 與法力值 (MP) 充能完畢！(第 ${nextDay} 日 ☀️ 早晨, 花費 ${cost} 金幣)`, "player_action");
 
-    triggerAutosave(nextGold, nextParty, quests, items, activeZoneId, statistics);
+    triggerAutosave(nextGold, nextParty, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, nextDay, 0);
+  };
+
+  // 野外紮營 (Camp) — free anti-softlock rest: new day, morning, restore 30% max HP/MP, no gold.
+  const campRest = () => {
+    const nextDay = daysPassed + 1;
+    setDaysPassed(nextDay);
+    setTimeSlotIndex(0);
+
+    const nextParty = party.map((m) => ({
+      ...m,
+      hp: Math.min(m.maxHp, m.hp + Math.round(m.maxHp * 0.3)),
+      mp: Math.min(m.maxMp, m.mp + Math.round(m.maxMp * 0.3)),
+      isDead: false
+    }));
+    setParty(nextParty);
+
+    addLog(`🏕️ 隊伍就地搭起野外應急營帳，靠星火與壓縮口糧勉強恢復了 30% 生命/法力 (免費)。(第 ${nextDay} 日 ☀️ 早晨)`, "player_action");
+
+    triggerAutosave(gold, nextParty, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, nextDay, 0);
   };
 
   // Recruit companion from Tavern
@@ -849,6 +864,13 @@ export default function App() {
     const zone = ZONES.find((z) => z.id === zoneId);
     if (!zone) return;
 
+    // Day exhausted: night venture already spent — block until rest/camp.
+    // (This guard does NOT consume a slot; the early-returns below don't either.)
+    if (isDayExhausted) {
+      addLog(`🌙 夜深了，隊伍需要休整。請前往太空酒館休息以迎接新一天。`, "system");
+      return;
+    }
+
     // Check min level
     const heroLevel = party[0].lv;
     if (heroLevel < zone.minLevel) {
@@ -875,13 +897,19 @@ export default function App() {
     const randTmpName = zone.monsters[Math.floor(Math.random() * zone.monsters.length)];
     const template = MONSTER_TEMPLATES[randTmpName] || MONSTER_TEMPLATES.slime_plant;
 
+    // 🌙 Night: monsters are buffed (hp/atk ×1.25, def ×1.15).
+    const isNight = currentTimeOfDay === "night";
+    const spawnHp = isNight ? Math.round(template.baseHp * 1.25) : template.baseHp;
+    const spawnAtk = isNight ? Math.round(template.baseAtk * 1.25) : template.baseAtk;
+    const spawnDef = isNight ? Math.round(template.baseDef * 1.15) : template.baseDef;
+
     const spawnMonster: Monster = {
       id: `monster_${Date.now()}`,
-      name: template.name,
-      hp: template.baseHp,
-      maxHp: template.baseHp,
-      atk: template.baseAtk,
-      def: template.baseDef,
+      name: isNight ? `🌙 ${template.name}` : template.name,
+      hp: spawnHp,
+      maxHp: spawnHp,
+      atk: spawnAtk,
+      def: spawnDef,
       element: template.element,
       rewardExp: template.rewardExp,
       rewardGold: template.rewardGold,
@@ -889,6 +917,10 @@ export default function App() {
       emoji: template.emoji,
       isDead: false
     };
+
+    if (isNight) {
+      addLog(`🌙 夜域強化：魔物在夜色中變得更兇猛 (生命/攻擊 +25%，防禦 +15%)！`, "system");
+    }
 
     // Find first alive party member index to serve as active combat turn
     let firstAliveIdx = party.findIndex((m) => m.hp > 0 && !m.isDead);
@@ -914,6 +946,7 @@ export default function App() {
     const localParty = [...party];
     const localMaterials = { ...materials };
     const localItems = [...items];
+    let finalItems = localItems; // track item mutations so the save isn't stale
 
     let outcomeLog = "";
 
@@ -978,6 +1011,7 @@ export default function App() {
           if (i.id === "phoenix_feather") return { ...i, count: i.count + 1 };
           return i;
         });
+        finalItems = updatedItems;
         setItems(updatedItems);
         outcomeLog = `🪶 交易成功！花費 80 Credits 強行買入【🪶 鳳凰量子甦生羽 x1】(立省 70 金幣)！`;
       } else {
@@ -992,43 +1026,10 @@ export default function App() {
       });
       // Add exp to all
       localParty.forEach((m, idx) => {
-        let currentExp = m.exp + 100;
-        let nextLv = m.lv;
-        let nextMaxExp = m.maxExp;
-        let nextHp = m.hp;
-        let nextMaxHp = m.maxHp;
-        let nextMp = m.mp;
-        let nextMaxMp = m.maxMp;
-        let nextAtk = m.atk;
-        let nextDef = m.def;
-        let leveledUp = false;
-
-        while (currentExp >= nextMaxExp) {
-          currentExp -= nextMaxExp;
-          nextLv += 1;
-          nextMaxExp = Math.round(nextMaxExp * 1.5);
-          nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
-          nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
-          nextAtk = nextAtk + 4;
-          nextDef = nextDef + 2;
-          nextHp = nextMaxHp;
-          nextMp = nextMaxMp;
-          leveledUp = true;
-        }
-        localParty[idx] = {
-          ...m,
-          lv: nextLv,
-          exp: currentExp,
-          maxExp: nextMaxExp,
-          hp: nextHp,
-          maxHp: nextMaxHp,
-          mp: nextMp,
-          maxMp: nextMaxMp,
-          atk: nextAtk,
-          def: nextDef
-        };
+        const { member: leveled, leveledUp, newLv } = applyExpGain(m, 100);
+        localParty[idx] = leveled;
         if (leveledUp) {
-          addLog(`☄️ 磁暴突破！【${m.name}】在恆星微波感應中突破至 LV.${nextLv}！`, "victory");
+          addLog(`☄️ 磁暴突破！【${m.name}】在恆星微波感應中突破至 LV.${newLv}！`, "victory");
         }
       });
       outcomeLog = `🛡️ 護盾抗阻！雖然隊伍遭受了 20% 當前生命值的重力亂流衝擊，但在科研感應器記錄下，小隊全體成員共享了 +100 點粒子經驗值 (EXP)！`;
@@ -1050,9 +1051,10 @@ export default function App() {
     setParty(localParty);
     setMaterials(localMaterials);
 
-    // Save and close
+    // Save and close — a space event is a venture, so it consumes a time slot.
     setActiveSpaceEvent(null);
-    triggerAutosave(localGold, localParty, quests, items, activeZoneId, statistics, localMaterials);
+    const nextSlot = advanceTimeSlot();
+    triggerAutosave(localGold, localParty, quests, finalItems, activeZoneId, statistics, localMaterials, undefined, undefined, undefined, undefined, nextSlot);
   };
 
   // Apply ally actions (Attack, Skill, Use Item)
@@ -1433,22 +1435,28 @@ export default function App() {
 
     addLog(`🎉 🏆 戰鬥勝出！成功殲滅太空魔物 【${monster.name}】！`, "victory");
 
-    // Earn EXP and Gold
-    const rewardExp = monster.rewardExp;
-    const rewardGold = monster.rewardGold;
+    // Earn EXP and Gold (time-of-day modifies the take)
+    const isNoon = currentTimeOfDay === "noon";
+    const isNight = currentTimeOfDay === "night";
 
-    // Apply Gold Attractor passive blessing
+    // 🌙 Night: exp ×1.2.  ☀️🌤️ otherwise baseline.
+    const rewardExp = isNight ? Math.round(monster.rewardExp * 1.2) : monster.rewardExp;
+
+    // Apply Gold Attractor passive blessing, then time-of-day gold modifiers
     const hasGoldAttractor = craftedArtifactIds.includes("artifact_attractor");
-    const actualRewardGold = hasGoldAttractor ? Math.round(rewardGold * 1.25) : rewardGold;
+    let actualRewardGold = hasGoldAttractor ? Math.round(monster.rewardGold * 1.25) : monster.rewardGold;
+    if (isNoon) actualRewardGold = Math.round(actualRewardGold * 1.15); // 🌤️ noon bonus
+    if (isNight) actualRewardGold = Math.round(actualRewardGold * 1.2); // 🌙 night bonus
 
     const nextGold = gold + actualRewardGold;
     setGold(nextGold);
 
-    if (hasGoldAttractor) {
-      addLog(`💰 冒險核對：開拓帳戶新增能源金幣 +${actualRewardGold} ✨！(包含「超維度重力引金磁針」額外 25% 充值)`, "victory");
-    } else {
-      addLog(`💰 冒險核對：開拓帳戶新增能源金幣 +${actualRewardGold} ✨！`, "victory");
-    }
+    const bonusNotes: string[] = [];
+    if (hasGoldAttractor) bonusNotes.push("磁針 +25%");
+    if (isNoon) bonusNotes.push("🌤️ 午間 +15%");
+    if (isNight) bonusNotes.push("🌙 夜域 +20% Gold/EXP");
+    const timeNote = bonusNotes.length > 0 ? ` (${bonusNotes.join("、")})` : "";
+    addLog(`💰 冒險核對：開拓帳戶新增能源金幣 +${actualRewardGold} ✨！${timeNote}`, "victory");
 
     // Material rewards drop mechanics
     let droppedMatId = "";
@@ -1479,49 +1487,13 @@ export default function App() {
     const expHealedParty = finalPartyState.map((member) => {
       if (member.hp <= 0 || member.isDead) return member; // Dead companions do not earn active combat EXP!
 
-      let currentExp = member.exp + rewardExp;
-      let nextLv = member.lv;
-      let nextMaxExp = member.maxExp;
-      let nextHp = member.hp;
-      let nextMaxHp = member.maxHp;
-      let nextMp = member.mp;
-      let nextMaxMp = member.maxMp;
-      let nextAtk = member.atk;
-      let nextDef = member.def;
-      let leveledUp = false;
-
-      while (currentExp >= nextMaxExp) {
-        currentExp -= nextMaxExp;
-        nextLv += 1;
-        nextMaxExp = Math.round(nextMaxExp * 1.5);
-        // Stats scaling
-        nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
-        nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
-        nextAtk = nextAtk + 4;
-        nextDef = nextDef + 2;
-        nextHp = nextMaxHp; // Refill HP entirely on level up!
-        nextMp = nextMaxMp;
-        leveledUp = true;
-      }
-
+      const { member: leveled, leveledUp, newLv } = applyExpGain(member, rewardExp);
       if (leveledUp) {
-        addLog(`✨ 💫 突破極限！我方隊員【${member.name}】晉階提升至 LV.${nextLv}！攻擊/防禦特性全方位升載！`, "victory");
+        addLog(`✨ 💫 突破極限！我方隊員【${member.name}】晉階提升至 LV.${newLv}！攻擊/防禦特性全方位升載！`, "victory");
       } else {
         addLog(`🧪 【${member.name}】汲取戰場數據能量 EXP +${rewardExp}。`, "victory");
       }
-
-      return {
-        ...member,
-        lv: nextLv,
-        exp: currentExp,
-        maxExp: nextMaxExp,
-        hp: nextHp,
-        maxHp: nextMaxHp,
-        mp: nextMp,
-        maxMp: nextMaxMp,
-        atk: nextAtk,
-        def: nextDef
-      };
+      return leveled;
     });
 
     setParty(expHealedParty);
@@ -1540,7 +1512,8 @@ export default function App() {
     updatedQuests = checkQuestMilestone("experience", rewardExp, updatedQuests);
 
     setCombat(null);
-    triggerAutosave(nextGold, expHealedParty, updatedQuests, items, activeZoneId, nextStats, nextMaterials);
+    const nextSlot = advanceTimeSlot(); // venture resolved → consume a slot
+    triggerAutosave(nextGold, expHealedParty, updatedQuests, items, activeZoneId, nextStats, nextMaterials, undefined, undefined, undefined, undefined, nextSlot);
   };
 
   // Player Defeat Flow (Soft game over, recovery back in town with slight fee)
@@ -1570,7 +1543,8 @@ export default function App() {
 
     addLog(`🛰️ 軌道救援艙迅速投射，已成功將隊伍拖回安全區。扣除 15% 搶修保障金卷 (-${penaltyFee} 金幣)。主角已被極限重啟復甦 (50% HP)，請妥善修補防線！`, "system");
 
-    triggerAutosave(nextGold, recoveredParty, quests, items, activeZoneId, statistics);
+    const nextSlot = advanceTimeSlot(); // a failed venture still spends the time slot
+    triggerAutosave(nextGold, recoveredParty, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, nextSlot);
   };
 
   // Escape combat safely
@@ -1578,6 +1552,8 @@ export default function App() {
     if (!combat) return;
     addLog(`🏃 警告！隊員釋放高頻擾空干擾，慌忙地在傳送覆蓋超載中逃離了與【${combat.monster.name}】的戰鬥。`, "system");
     setCombat(null);
+    const nextSlot = advanceTimeSlot(); // fleeing still consumes the slot
+    triggerAutosave(gold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, nextSlot);
   };
 
   // --- Auto-combat engine processor ---
@@ -1839,10 +1815,33 @@ export default function App() {
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[#3a4e69]">STATION CLOCK:</span>
+                  <span className="text-[#3a4e69]">📅 第</span>
                   <span className="text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-990/30 font-mono">
-                    DAY {daysPassed}
+                    {daysPassed} 日
                   </span>
+                </div>
+
+                {/* Time-of-day chip + slot pips */}
+                <div className="flex items-center gap-2">
+                  <span className={`font-semibold px-2 py-0.5 rounded border font-mono ${
+                    currentTimeOfDay === "night"
+                      ? "text-indigo-300 bg-indigo-950/50 border-indigo-800/40"
+                      : currentTimeOfDay === "noon"
+                      ? "text-amber-300 bg-amber-950/40 border-amber-800/40"
+                      : "text-cyan-300 bg-cyan-950/40 border-cyan-800/40"
+                  }`}>
+                    {getTimeOfDayLabel(currentTimeOfDay)}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-[11px]" title="今日時段進度 (早/午/晚)">
+                    {TIME_ORDER.map((_, i) => (
+                      <span key={i} className={timeSlotIndex > i ? "text-emerald-400" : "text-slate-600"}>
+                        {timeSlotIndex > i ? "●" : "○"}
+                      </span>
+                    ))}
+                  </span>
+                  {isDayExhausted && (
+                    <span className="text-[10px] text-rose-400 font-bold animate-pulse">需要休息</span>
+                  )}
                 </div>
               </div>
             </header>
@@ -2359,7 +2358,28 @@ export default function App() {
                   <div className="space-y-3 font-mono">
                     <div className="bg-slate-950 border border-slate-850 px-3 py-2 rounded-lg text-xs leading-relaxed text-slate-400">
                       <p className="font-semibold text-slate-200 mb-1">🧭 副本祕境探索部署 (Deploy Radar)</p>
-                      選擇下方深空座標信號，點選「出戰群體打怪」隨即切換重整進攻面板。注意等級限制！
+                      選擇下方深空座標信號，點選「出戰群體打怪」隨即切換重整進攻面板。注意等級限制！每日 3 段出擊 (早/午/晚)，用完需休息。
+                    </div>
+
+                    {/* Time-of-day modifier hint */}
+                    <div className={`px-3 py-2 rounded-lg text-[11px] leading-relaxed border font-sans ${
+                      isDayExhausted
+                        ? "bg-rose-950/30 border-rose-800/40 text-rose-300"
+                        : currentTimeOfDay === "night"
+                        ? "bg-indigo-950/30 border-indigo-800/40 text-indigo-200"
+                        : currentTimeOfDay === "noon"
+                        ? "bg-amber-950/25 border-amber-800/40 text-amber-200"
+                        : "bg-cyan-950/25 border-cyan-800/40 text-cyan-200"
+                    }`}>
+                      <span className="font-bold font-mono">{isDayExhausted ? "🌙 需要休息" : getTimeOfDayLabel(currentTimeOfDay)}</span>
+                      {" — "}
+                      {isDayExhausted
+                        ? "今日 3 段行程已用盡，請至太空酒館休息或野外紮營以開啟新一天。"
+                        : currentTimeOfDay === "night"
+                        ? "夜晚：魔物強化 +25%，稀有掉落率上升，可能遭遇夜行魔物/夜域主；獎勵 EXP/Gold +20%。"
+                        : currentTimeOfDay === "noon"
+                        ? "午間：戰鬥勝利 Gold 獎勵 +15%。"
+                        : "早晨：基準時段，無額外增益。"}
                     </div>
 
                     {/* NEW: Stellar Signal Decryption Widget */}
@@ -2552,7 +2572,15 @@ export default function App() {
                       className="w-full bg-[#1b2b2b] hover:bg-[#253d3d] text-emerald-400 border border-emerald-900 py-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold font-mono tracking-wider transition-all cursor-pointer shadow-md shadow-inner"
                     >
                       <Coffee className="w-4 h-4 text-emerald-400" />
-                      💤 客棧修整 (Tavern Rest) (花費 {party.length * 15} 金幣)
+                      💤 客棧修整 (Tavern Rest) — 全恢復・天數+1 (花費 {party.length * 15} 金幣)
+                    </button>
+
+                    {/* 野外紮營 — free anti-softlock rest */}
+                    <button
+                      onClick={campRest}
+                      className="w-full bg-[#26221b] hover:bg-[#37301f] text-amber-300 border border-amber-900/60 py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold font-mono tracking-wider transition-all cursor-pointer shadow-inner"
+                    >
+                      🏕️ 野外紮營 (Camp) — 恢復 30% HP/MP・天數+1 (免費)
                     </button>
 
                     <h4 className="text-xs font-bold text-slate-400 pt-2 flex items-center gap-1 uppercase tracking-wider">
