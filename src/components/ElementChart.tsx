@@ -63,7 +63,7 @@ export default function ElementChart() {
       </div>
 
       {/* Description Panel */}
-      <div className="bg-slate-950 border border-slate-850 rounded-lg p-3 text-xs text-slate-350">
+      <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-400">
         <div className="flex items-center flex-wrap gap-2 mb-2 font-mono">
           <span className="text-slate-400 font-semibold flex items-center gap-1">
             {getElementEmoji(selectedElement)} {getElementLabel(selectedElement)}
@@ -78,7 +78,7 @@ export default function ElementChart() {
           </span>
         </div>
 
-        <p className="text-slate-450 leading-relaxed font-sans text-[11px]">
+        <p className="text-slate-400 leading-relaxed font-sans text-[11px]">
           {currentAffinity.desc}
         </p>
 

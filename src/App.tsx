@@ -207,7 +207,7 @@ export default function App() {
   const [questKindTab, setQuestKindTab] = useState<"main" | "side" | "daily">("main");
 
   // --- UI/UX Navigation ---
-  const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests" | "exchange">("explore");
+  const [activeTab, setActiveTab] = useState<"explore" | "tavern" | "blacksmith" | "quests" | "exchange" | "party">("explore");
   const [questsSubTab, setQuestsSubTab] = useState<"board" | "achievements">("board");
   const [smithySubTab, setSmithySubTab] = useState<"forge" | "alchemy" | "awaken" | "gear">("forge");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -2068,7 +2068,7 @@ export default function App() {
   const currentActiveZone = ZONES.find((z) => z.id === activeZoneId) || ZONES[0];
 
   return (
-    <div className="w-full min-h-screen bg-[#070b13] text-[#cfd8e3] selection:bg-cyan-500 selection:text-slate-950 flex flex-col items-center justify-center py-0 md:py-6 px-0 sm:px-4 font-sans antialiased relative">
+    <div className="w-full min-h-screen bg-[#070b13] text-[#cfd8e3] selection:bg-cyan-500 selection:text-slate-950 flex flex-col items-center justify-center py-0 px-0 font-sans antialiased relative">
       
       {/* Background starry neon aesthetic mask */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-blue-950/20 via-[#070b13] to-[#070b13] pointer-events-none z-0" />
@@ -2076,25 +2076,25 @@ export default function App() {
       {/* Main retro future cabinet frame */}
       <div 
         id="mud-cabinet-viewport" 
-        className="w-full max-w-6xl h-screen md:h-[82vh] md:max-h-[768px] xl:md:max-h-[820px] bg-slate-950/80 backdrop-blur-md rounded-none md:rounded-2xl border border-slate-800 shadow-2px shadow-cyan-950/50 flex flex-col overflow-hidden z-10 md:my-auto"
+        className="w-full max-w-[440px] h-screen bg-slate-950/80 backdrop-blur-md rounded-none border-x border-slate-800 shadow-2xl shadow-cyan-950/50 flex flex-col overflow-hidden z-10"
       >
         {showStartScreen ? (
-          <div className="flex-grow flex flex-col items-center justify-center p-4 md:p-8 bg-[#090e18] font-mono relative overflow-y-auto select-none">
+          <div className="flex-grow flex flex-col items-center justify-center p-4 bg-[#090e18] font-mono relative overflow-y-auto select-none">
             {/* Ambient visual backdrops */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-950/20 via-[#090e18] to-[#090e18] pointer-events-none z-0" />
             <div className="absolute inset-x-0 top-1/4 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent pointer-events-none" />
             <div className="absolute inset-x-0 bottom-1/4 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent pointer-events-none" />
 
-            <div className="text-center relative z-10 max-w-lg mb-8 md:mb-10 space-y-4">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/20 text-cyan-400 text-[10px] uppercase font-bold tracking-widest animate-pulse">
+            <div className="text-center relative z-10 max-w-lg mb-8 space-y-4">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/20 text-cyan-400 text-[12px] uppercase font-bold tracking-widest animate-pulse">
                 🌌 Cosmic Exploration Protocol Active
               </div>
 
-              <h1 className="text-4xl md:text-5xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-200 to-amber-300 drop-shadow-md font-mono select-none">
+              <h1 className="text-4xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-200 to-amber-300 drop-shadow-md font-mono select-none">
                 COSMIC ODYSSEY
               </h1>
 
-              <p className="text-xs md:text-sm text-slate-405 font-sans tracking-wide">
+              <p className="text-xs text-slate-400 font-sans tracking-wide">
                 星區軌道臨界點開拓日誌 & 戰術控制終端 MUD
               </p>
 
@@ -2115,7 +2115,7 @@ export default function App() {
                 className={`w-full py-3.5 px-6 rounded-xl border text-xs font-bold font-mono tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   hasSave
                     ? "bg-cyan-500 text-slate-950 border-cyan-600 hover:bg-cyan-400 hover:scale-[1.02] shadow-lg shadow-cyan-950/45"
-                    : "bg-slate-900 border-slate-850 text-slate-500 cursor-not-allowed opacity-40"
+                    : "bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed opacity-40"
                 }`}
               >
                 📂 {hasSave ? "繼續/載入歷史波形" : "無本地存檔磁軌資訊"}
@@ -2144,10 +2144,10 @@ export default function App() {
                   id="btn-export-save"
                   onClick={handleExportSave}
                   disabled={!hasSave}
-                  className={`flex-1 py-2.5 px-3 border rounded-lg text-[11px] font-semibold font-mono tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-2.5 px-3 border rounded-lg text-[13px] font-semibold font-mono tracking-wider transition-all flex items-center justify-center gap-1.5 ${
                     hasSave
-                      ? "bg-slate-900/40 hover:bg-slate-850 text-slate-300 hover:text-cyan-300 border-slate-800 hover:border-cyan-500/30 cursor-pointer"
-                      : "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed opacity-40"
+                      ? "bg-slate-900/40 hover:bg-slate-800 text-slate-300 hover:text-cyan-300 border-slate-800 hover:border-cyan-500/30 cursor-pointer"
+                      : "bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed opacity-40"
                   }`}
                 >
                   💾 匯出存檔
@@ -2155,7 +2155,7 @@ export default function App() {
                 <button
                   id="btn-import-save"
                   onClick={() => importInputRef.current?.click()}
-                  className="flex-1 py-2.5 px-3 bg-slate-900/40 hover:bg-slate-850 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/30 rounded-lg text-[11px] font-semibold font-mono tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 px-3 bg-slate-900/40 hover:bg-slate-800 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/30 rounded-lg text-[13px] font-semibold font-mono tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   📥 匯入存檔
                 </button>
@@ -2171,7 +2171,7 @@ export default function App() {
               {/* Transfer feedback banner */}
               {transferStatus && (
                 <div
-                  className={`text-[11px] font-sans leading-relaxed rounded-lg border px-3 py-2 ${
+                  className={`text-[13px] font-sans leading-relaxed rounded-lg border px-3 py-2 ${
                     transferStatus.ok
                       ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-300"
                       : "bg-red-950/40 border-red-500/30 text-red-300"
@@ -2185,7 +2185,7 @@ export default function App() {
               <button
                 id="btn-manual-toggle"
                 onClick={() => setIsManualOpen(!isManualOpen)}
-                className="w-full py-2.5 px-6 bg-slate-900/40 hover:bg-slate-850 text-slate-450 hover:text-slate-200 border border-slate-900 rounded-lg text-xs font-semibold font-mono tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 px-6 bg-slate-900/40 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-900 rounded-lg text-xs font-semibold font-mono tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 🛡️ 系統開拓指南 (Manual)
               </button>
@@ -2199,7 +2199,7 @@ export default function App() {
               >
                 <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1">
                   <span className="font-bold text-slate-200 font-mono flex items-center gap-1">⚔️ 星際拓荒指南 (Odyssey Manual)</span>
-                  <button onClick={() => setIsManualOpen(false)} className="text-[10px] text-cyan-400 hover:underline">關閉</button>
+                  <button onClick={() => setIsManualOpen(false)} className="text-[12px] text-cyan-400 hover:underline">關閉</button>
                 </div>
                 <p>
                   1. <strong className="text-cyan-400">副本祕境</strong>：不同區域各具特色，包含<span className="text-orange-400">火</span>、<span className="text-emerald-400">草</span>、<span className="text-amber-500">土</span>、<span className="text-cyan-400">電</span>、<span className="text-blue-400">水</span>等相剋元素。弱點屬性反複克制可激發 200% 的 <strong className="text-orange-400">Critical 雙倍傷害</strong>！而被克制時則會觸發 <span className="text-blue-300">Guarded 減半</span> 機制。
@@ -2219,7 +2219,7 @@ export default function App() {
                 id="new-game-confirm-modal"
                 className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
               >
-                <div className="w-full max-w-sm bg-slate-900 border border-red-900/50 rounded-xl p-5 md:p-6 space-y-4 text-center font-mono">
+                <div className="w-full max-w-sm bg-slate-900 border border-red-900/50 rounded-xl p-5 space-y-4 text-center font-mono">
                   <h3 className="text-sm font-bold text-red-500 flex items-center justify-center gap-2">
                     ⚠️ 偵測到已有歷史進度！
                   </h3>
@@ -2240,7 +2240,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => setIsNewGameConfirmOpen(false)}
-                      className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-755 text-slate-300 font-bold rounded-lg text-xs cursor-pointer transition-colors"
+                      className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-xs cursor-pointer transition-colors"
                     >
                       不，不重置
                     </button>
@@ -2250,7 +2250,7 @@ export default function App() {
             )}
 
             {/* Bottom note */}
-            <div className="mt-8 text-[9px] text-slate-600 font-mono uppercase tracking-widest text-center">
+            <div className="mt-8 text-[11px] text-slate-600 font-mono uppercase tracking-widest text-center">
               🌌 COSMIC ODYSSEY retro mud engine v2.84 • all telemetry secure
             </div>
           </div>
@@ -2264,18 +2264,18 @@ export default function App() {
                 </div>
                 <div>
                   <h1 className="text-sm font-bold text-slate-100 uppercase tracking-widest font-mono flex items-center gap-1">
-                    Cosmic Odyssey MUD <span className="text-[10px] text-cyan-400 font-normal px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-800/20">RETRO-JRPG</span>
+                    Cosmic Odyssey MUD <span className="text-[12px] text-cyan-400 font-normal px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-800/20">RETRO-JRPG</span>
                   </h1>
-                  <p className="text-[10px] text-slate-500 font-mono tracking-tight">STATION ORBITAL TRANSCEIVER v2.84</p>
+                  <p className="text-[12px] text-slate-500 font-mono tracking-tight">STATION ORBITAL TRANSCEIVER v2.84</p>
                 </div>
               </div>
 
               {/* Quick Metrics */}
-              <div className="flex items-center gap-3 sm:gap-6 text-xs font-mono">
+              <div className="flex items-center gap-3 text-xs font-mono">
                 <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800 shadow-inner">
                   <Coins className="w-4 h-4 text-amber-400" />
                   <span className="text-slate-500">CREDITS:</span>
-                  <span className="text-amber-400 font-bold">{gold} <span className="text-[10px] text-amber-500/80">✨</span></span>
+                  <span className="text-amber-400 font-bold">{gold} <span className="text-[12px] text-amber-500/80">✨</span></span>
                 </div>
 
                 <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
@@ -2286,7 +2286,7 @@ export default function App() {
 
                 <div className="flex items-center gap-1.5">
                   <span className="text-[#3a4e69]">📅 第</span>
-                  <span className="text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-990/30 font-mono">
+                  <span className="text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-950/30 font-mono">
                     {daysPassed} 日
                   </span>
                 </div>
@@ -2302,7 +2302,7 @@ export default function App() {
                   }`}>
                     {getTimeOfDayLabel(currentTimeOfDay)}
                   </span>
-                  <span className="flex items-center gap-0.5 text-[11px]" title="今日時段進度 (早/午/晚)">
+                  <span className="flex items-center gap-0.5 text-[13px]" title="今日時段進度 (早/午/晚)">
                     {TIME_ORDER.map((_, i) => (
                       <span key={i} className={timeSlotIndex > i ? "text-emerald-400" : "text-slate-600"}>
                         {timeSlotIndex > i ? "●" : "○"}
@@ -2310,7 +2310,7 @@ export default function App() {
                     ))}
                   </span>
                   {isDayExhausted && (
-                    <span className="text-[10px] text-rose-400 font-bold animate-pulse">需要休息</span>
+                    <span className="text-[12px] text-rose-400 font-bold animate-pulse">需要休息</span>
                   )}
                 </div>
               </div>
@@ -2321,30 +2321,30 @@ export default function App() {
             {activeSpaceEvent ? (
               <div 
                 id="space-event-workspace" 
-                className="flex-1 p-4 md:p-8 bg-[#090e18] flex flex-col items-center justify-center font-mono relative overflow-hidden"
+                className="flex-1 p-4 bg-[#090e18] flex flex-col items-center justify-center font-mono relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyan-950/15 via-[#090e18] to-[#090e18] pointer-events-none" />
                 
                 {/* Pulsing retro laser grid line */}
                 <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-cyan-500 via-indigo-500 to-cyan-500 animate-pulse z-20" />
 
-                <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-xl p-5 md:p-6 shadow-2xl relative z-10 space-y-4">
+                <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-2xl relative z-10 space-y-4">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
                     <div className="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-500/30 flex items-center justify-center shadow-lg shadow-cyan-500/20">
                       <Compass className="w-4 h-4 text-cyan-400 animate-spin" />
                     </div>
                     <div>
-                      <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest block font-mono animate-pulse">📡 UNKNOWN RADIO CONTACT ANOMALY</span>
+                      <span className="text-[12px] text-cyan-400 font-bold uppercase tracking-widest block font-mono animate-pulse">📡 UNKNOWN RADIO CONTACT ANOMALY</span>
                       <h3 className="text-sm font-bold text-slate-100 font-mono tracking-tight">{activeSpaceEvent.title}</h3>
                     </div>
                   </div>
 
-                  <div className="text-slate-300 text-xs md:text-sm leading-relaxed font-sans bg-slate-950/70 border border-slate-900 p-4 rounded-lg">
+                  <div className="text-slate-300 text-xs leading-relaxed font-sans bg-slate-950/70 border border-slate-900 p-4 rounded-lg">
                     {activeSpaceEvent.description}
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-slate-850">
-                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">星軌指揮決策 (Choose your path):</div>
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <div className="text-[12px] text-slate-500 font-bold uppercase tracking-wider mb-2">星軌指揮決策 (Choose your path):</div>
                     
                     {activeSpaceEvent.choices.map((choice) => {
                       const matchesBuyFeather = choice.actionId === "merchant_buy_feather" && gold < 80;
@@ -2358,14 +2358,14 @@ export default function App() {
                           className={`w-full text-left p-3 rounded-lg border text-xs cursor-pointer transition-all ${
                             isButtonDisabled
                               ? "bg-slate-950/50 border-slate-900/60 text-slate-600 cursor-not-allowed opacity-40"
-                              : "bg-slate-950 border-slate-850 hover:bg-slate-900 hover:border-cyan-500/40 text-slate-200"
+                              : "bg-slate-950 border-slate-800 hover:bg-slate-900 hover:border-cyan-500/40 text-slate-200"
                           }`}
                         >
                           <div className="font-bold flex items-center justify-between text-cyan-400">
                             <span>{choice.text}</span>
-                            {choice.actionId === "merchant_buy_feather" && <span className="text-amber-500 text-[10px] font-bold">費額: 80 ✨</span>}
+                            {choice.actionId === "merchant_buy_feather" && <span className="text-amber-500 text-[12px] font-bold">費額: 80 ✨</span>}
                           </div>
-                          <div className="text-[11px] text-slate-400 mt-1 font-sans font-normal leading-relaxed">
+                          <div className="text-[13px] text-slate-400 mt-1 font-sans font-normal leading-relaxed">
                             {choice.hint}
                           </div>
                         </button>
@@ -2377,32 +2377,32 @@ export default function App() {
             ) : combat ? (
               <div 
                 id="combat-workspace" 
-                className="flex-grow flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-800 bg-[#0b101b] relative overflow-hidden"
+                className="flex-grow flex flex-col divide-y divide-slate-800 bg-[#0b101b] relative overflow-hidden"
               >
                 {/* Danger indicator glow line */}
                 <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-red-600 via-orange-500 to-red-600 animate-pulse z-20" />
 
             {/* Left side: Combat Screen Display Area */}
-            <div className="flex-grow md:flex-1 p-2 sm:p-4 md:p-5 flex flex-col justify-between overflow-y-auto min-h-0">
+            <div className="flex-grow p-2 flex flex-col justify-between overflow-y-auto min-h-0">
               
               {/* Battle Header */}
-              <div className="flex items-center justify-between mb-2 bg-slate-900/60 py-1.5 px-3 rounded-lg border border-slate-800/40 font-mono text-[10px] sm:text-xs shrink-0">
+              <div className="flex items-center justify-between mb-2 bg-slate-900/60 py-1.5 px-3 rounded-lg border border-slate-800/40 font-mono text-[12px] shrink-0">
                 <span className="text-red-400 font-bold tracking-widest flex items-center gap-1 uppercase">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
                   🚨 ACTIVE THREAT
                 </span>
-                <span className="text-slate-400 flex items-center gap-1 text-[10px] sm:text-xs">
+                <span className="text-slate-400 flex items-center gap-1 text-[12px]">
                   ROUND {combat.round} <ArrowRight className="w-3 h-3 text-slate-600" /> SEQUENCE PHASE
                 </span>
                 <div className="flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                   <Compass className="w-3 h-3 text-cyan-400" />
-                  <span className="text-[9px] sm:text-[10px] text-cyan-400 uppercase font-semibold">{ZONES.find(z => z.id === combat.zoneId)?.name.split(" ")[0]}</span>
+                  <span className="text-[11px] text-cyan-400 uppercase font-semibold">{ZONES.find(z => z.id === combat.zoneId)?.name.split(" ")[0]}</span>
                 </div>
               </div>
 
               {/* MONSTER ACTIVE OPPONENT CARD */}
-              <div className="w-full max-w-xl mx-auto py-1 sm:py-2">
-                <div className={`bg-slate-900 border border-red-950/60 rounded-xl p-3 sm:p-4 shadow-xl relative overflow-hidden transition-all ${
+              <div className="w-full max-w-xl mx-auto py-1">
+                <div className={`bg-slate-900 border border-red-950/60 rounded-xl p-3 shadow-xl relative overflow-hidden transition-all ${
                   isRecentlyAttacked(0, true) ? "animate-shake-hurt" : ""
                 }`}>
                   {/* Elemental badge background radial light */}
@@ -2416,36 +2416,36 @@ export default function App() {
                   {/* Threat level stats label */}
                   <div className="flex items-start justify-between relative z-10 gap-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-slate-950 border border-red-500/20 flex items-center justify-center text-2xl sm:text-3xl shadow-inner relative shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-slate-950 border border-red-500/20 flex items-center justify-center text-2xl shadow-inner relative shrink-0">
                         {combat.monster.emoji}
                         {/* Monster active elemental tag badge */}
-                        <span className="absolute -bottom-1 -right-1 text-[10px] sm:text-xs">{getElementEmoji(combat.monster.element)}</span>
+                        <span className="absolute -bottom-1 -right-1 text-[12px]">{getElementEmoji(combat.monster.element)}</span>
                       </div>
                       <div>
-                        <h2 className="text-slate-100 font-bold text-xs sm:text-sm tracking-wide font-mono flex items-center gap-1">
+                        <h2 className="text-slate-100 font-bold text-xs tracking-wide font-mono flex items-center gap-1">
                           {combat.monster.name}
                         </h2>
-                        <span className={`text-[9px] sm:text-[10px] font-mono px-1.5 py-0.2 rounded border ${getElementColorClass(combat.monster.element)}`}>
+                        <span className={`text-[11px] font-mono px-1.5 py-0.2 rounded border ${getElementColorClass(combat.monster.element)}`}>
                           AFFINITY: {getElementLabel(combat.monster.element)}
                         </span>
                       </div>
                     </div>
 
-                    <div className="text-right font-mono text-[10px] sm:text-xs shrink-0">
+                    <div className="text-right font-mono text-[12px] shrink-0">
                       <p className="text-amber-400 font-semibold">{combat.monster.rewardGold} ✨ CREDITS</p>
                       <p className="text-violet-400">+{combat.monster.rewardExp} EXP</p>
                     </div>
                   </div>
 
                   {/* Monster HP visual bar (neon styled) */}
-                  <div className="mt-2.5 sm:mt-4">
-                    <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-slate-400 mb-0.5 sm:mb-1">
+                  <div className="mt-2.5">
+                    <div className="flex items-center justify-between text-[12px] font-mono text-slate-400 mb-0.5">
                       <span>MONSTER BARRIER (HP)</span>
                       <span className="font-bold text-red-400">{combat.monster.hp} / {combat.monster.maxHp}</span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-950 border border-slate-800 rounded-full overflow-hidden p-0.5">
                       <div 
-                        className="h-full bg-gradient-to-r from-red-600 to-rose-450 rounded-full transition-all duration-300 relative shadow-inner"
+                        className="h-full bg-gradient-to-r from-red-600 to-rose-400 rounded-full transition-all duration-300 relative shadow-inner"
                         style={{ width: `${Math.max(0, (combat.monster.hp / combat.monster.maxHp) * 100)}%` }}
                       >
                         {/* Charging neon highlights */}
@@ -2454,7 +2454,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <p className="mt-2 text-slate-400 text-[10px] sm:text-xs italic leading-normal font-sans opacity-95 line-clamp-2 md:line-clamp-none">
+                  <p className="mt-2 text-slate-400 text-[12px] italic leading-normal font-sans opacity-95 line-clamp-2">
                     💬 「{combat.monster.description}」
                   </p>
 
@@ -2467,9 +2467,9 @@ export default function App() {
                           key={num.id}
                           className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 text-2xl font-black font-mono tracking-wider float-anime-up"
                         >
-                          <span className={`px-2.5 py-1 text-base sm:text-2xl rounded-lg border shadow-2xl ${
+                          <span className={`px-2.5 py-1 text-base rounded-lg border shadow-2xl ${
                             num.type === "critical"
-                              ? "text-orange-400 bg-orange-950/90 border-orange-500 scale-110 text-xl sm:text-3xl font-extrabold"
+                              ? "text-orange-400 bg-orange-950/90 border-orange-500 scale-110 text-xl font-extrabold"
                               : num.type === "guarded"
                               ? "text-blue-300 bg-slate-900/95 border-slate-700 text-base opacity-80"
                               : "text-red-500 bg-slate-950/90 border-red-500"
@@ -2483,14 +2483,14 @@ export default function App() {
               </div>
 
               {/* ACTION COMMAND CONTROLLER PANEL FOR PLAYER COHORT */}
-              <div className="mt-1.5 sm:mt-2.5 border-t border-slate-850 pt-2 sm:pt-3 max-w-xl mx-auto w-full shrink-0">
+              <div className="mt-1.5 border-t border-slate-800 pt-2 max-w-xl mx-auto w-full shrink-0">
                 
                 {/* Auto combat switch bar */}
-                <div className="flex items-center justify-between bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-850 mb-2 text-xs">
-                  <span className="font-mono text-slate-400 text-[10px] sm:text-[11px] flex items-center gap-1 pr-2">
-                    <HelpCircle className="w-3.5 h-3.5 text-slate-500 shrink-0 hidden sm:inline" />
-                    <span className="hidden sm:inline">開荒提示：自動戰鬥由極小核心 AI 託管。</span>
-                    <span className="inline sm:hidden">📡 戰術 AI 託管狀態系統</span>
+                <div className="flex items-center justify-between bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-800 mb-2 text-xs">
+                  <span className="font-mono text-slate-400 text-[12px] flex items-center gap-1 pr-2">
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-500 shrink-0 hidden" />
+                    <span className="hidden">開荒提示：自動戰鬥由極小核心 AI 託管。</span>
+                    <span className="inline">📡 戰術 AI 託管狀態系統</span>
                   </span>
 
                   <button
@@ -2501,10 +2501,10 @@ export default function App() {
                       });
                       addLog(`⚙️ 戰術信號：${!combat.isAutoCombat ? "【開啟自動戰鬥】AI 現已接管當前回合指令代行！" : "【關閉自動戰鬥】返回手動排兵布陣面板。"}`, "system");
                     }}
-                    className={`px-2.5 py-1 rounded font-mono font-bold text-[10px] sm:text-xs transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
+                    className={`px-2.5 py-1 rounded font-mono font-bold text-[12px] transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
                       combat.isAutoCombat
                         ? "bg-amber-500 text-slate-950 shadow-lg hover:bg-amber-400"
-                        : "bg-slate-850 hover:bg-slate-800 text-slate-300"
+                        : "bg-slate-800 hover:bg-slate-800 text-slate-300"
                     }`}
                   >
                     <Bot className="w-3 h-3" />
@@ -2517,14 +2517,14 @@ export default function App() {
                   (() => {
                     const activeHero = party[combat.activePartyTurnIndex];
                     return (
-                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 sm:p-3 shadow-lg shadow-inner">
-                        <div className="flex items-center justify-between mb-1.5 sm:mb-2 border-b border-slate-800 pb-1.5">
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 shadow-lg shadow-inner">
+                        <div className="flex items-center justify-between mb-1.5 border-b border-slate-800 pb-1.5">
                           <div className="flex items-center gap-1">
-                            <span className="text-xs sm:text-sm">{getElementEmoji(activeHero.element)}</span>
-                            <span className="font-bold text-slate-100 font-mono text-xs sm:text-sm">{activeHero.name}</span>
-                            <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">({activeHero.title})</span>
+                            <span className="text-xs">{getElementEmoji(activeHero.element)}</span>
+                            <span className="font-bold text-slate-100 font-mono text-xs">{activeHero.name}</span>
+                            <span className="text-[12px] text-slate-500 font-mono hidden">({activeHero.title})</span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] sm:text-xs font-mono">
+                          <div className="flex items-center gap-2 text-[12px] font-mono">
                             <span className="text-emerald-400 font-semibold">HP {activeHero.hp}/{activeHero.maxHp}</span>
                             <span className="text-slate-600">|</span>
                             <span className="text-cyan-400 font-semibold">MP {activeHero.mp}/{activeHero.maxMp}</span>
@@ -2537,7 +2537,7 @@ export default function App() {
                           <button
                             id="btn-action-attack"
                             onClick={() => executeAllyAction("attack")}
-                            className="bg-slate-950 hover:bg-slate-850 text-rose-400 border border-rose-950 py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1 hover:border-rose-700/60 font-semibold cursor-pointer transition-all"
+                            className="bg-slate-950 hover:bg-slate-800 text-rose-400 border border-rose-950 py-2 rounded-lg flex items-center justify-center gap-1 hover:border-rose-700/60 font-semibold cursor-pointer transition-all"
                           >
                             <Sword className="w-3.5 h-3.5 text-rose-500" />
                             🗡️ 普攻 (Physical)
@@ -2547,13 +2547,13 @@ export default function App() {
                             id="btn-action-skill"
                             onClick={() => executeAllyAction("skill")}
                             disabled={activeHero.mp < activeHero.activeSkill.mpCost}
-                            className={`py-2 sm:py-2.5 rounded-lg border flex flex-col items-center justify-center cursor-pointer transition-all ${
+                            className={`py-2 rounded-lg border flex flex-col items-center justify-center cursor-pointer transition-all ${
                               activeHero.mp >= activeHero.activeSkill.mpCost
                                 ? "bg-cyan-950/40 text-cyan-400 hover:bg-cyan-900/50 border-cyan-800/60"
                                 : "bg-slate-950 text-slate-600 border-slate-900 cursor-not-allowed"
                             }`}
                           >
-                            <span className="font-semibold flex items-center gap-1 text-[11px] sm:text-xs">
+                            <span className="font-semibold flex items-center gap-1 text-[13px]">
                               <Sparkles className="w-3 h-3 text-cyan-400" />
                               🔮 {activeHero.activeSkill.name} (MP: {activeHero.activeSkill.mpCost})
                             </span>
@@ -2561,7 +2561,7 @@ export default function App() {
 
                           {/* Inventory Consumables quick tray inside combat */}
                           <div className="col-span-2 mt-0.5">
-                            <p className="text-[9px] text-slate-500 mb-0.5 font-mono uppercase tracking-wider">戰備應急背包藥水 (Consumables)</p>
+                            <p className="text-[11px] text-slate-500 mb-0.5 font-mono uppercase tracking-wider">戰備應急背包藥水 (Consumables)</p>
                             <div className="grid grid-cols-3 gap-1.5">
                               {items.map((it) => {
                                 const hasQuantity = it.count > 0;
@@ -2570,17 +2570,17 @@ export default function App() {
                                     key={it.id}
                                     onClick={() => executeAllyAction("item", it.id)}
                                     disabled={!hasQuantity}
-                                    className={`py-1 sm:py-1.5 px-2 rounded-lg border text-left flex items-center gap-1 justify-between transition-all ${
+                                    className={`py-1 px-2 rounded-lg border text-left flex items-center gap-1 justify-between transition-all ${
                                       hasQuantity
-                                        ? "bg-slate-950 border-slate-800 text-slate-200 hover:bg-slate-850 hover:border-slate-700 cursor-pointer"
+                                        ? "bg-slate-950 border-slate-800 text-slate-200 hover:bg-slate-800 hover:border-slate-700 cursor-pointer"
                                         : "bg-slate-950/40 border-slate-900/60 text-slate-600 cursor-not-allowed"
                                     }`}
                                   >
-                                    <span className="truncate flex items-center gap-1 text-[10px] sm:text-xs">
+                                    <span className="truncate flex items-center gap-1 text-[12px]">
                                       <span>{it.emoji}</span>
                                       <span className="truncate">{it.name.substring(4)}</span>
                                     </span>
-                                    <span className={`px-1 rounded font-bold text-[9px] sm:text-[10px] shrink-0 ${
+                                    <span className={`px-1 rounded font-bold text-[11px] shrink-0 ${
                                       hasQuantity ? "bg-cyan-950 text-cyan-400 border border-cyan-900" : "bg-slate-900 text-slate-500"
                                     }`}>
                                       x{it.count}
@@ -2597,7 +2597,7 @@ export default function App() {
                   })()
                 ) : (
                   combat.isAutoCombat ? (
-                    <div className="bg-amber-950/20 border border-amber-900/40 rounded-xl p-3 sm:p-4 text-center font-mono text-amber-400 text-xs shadow-inner animate-pulse">
+                    <div className="bg-amber-950/20 border border-amber-900/40 rounded-xl p-3 text-center font-mono text-amber-400 text-xs shadow-inner animate-pulse">
                       ⏳ 自動戰術處理中 (AUTO COMBAT ENGAGED) - AI 正在演算並代行戰魂卡牌...
                     </div>
                   ) : (
@@ -2611,7 +2611,7 @@ export default function App() {
                 <div className="mt-2 flex justify-center">
                   <button
                     onClick={escapeCombat}
-                    className="text-[10px] sm:text-[11px] font-mono text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer py-1 px-2.5 border border-slate-900 hover:border-red-950/60 rounded bg-slate-950/40"
+                    className="text-[12px] font-mono text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer py-1 px-2.5 border border-slate-900 hover:border-red-950/60 rounded bg-slate-950/40"
                   >
                     <AlertTriangle className="w-3 h-3 text-orange-500" />
                     🚨 逃離並撤銷副本通道 (Flee Combat)
@@ -2622,7 +2622,7 @@ export default function App() {
             </div>
 
             {/* Right side: Combat Logs & party status */}
-            <div className="w-full md:w-[360px] p-3 sm:p-4 flex flex-col justify-between shrink-0 h-[220px] md:h-full bg-slate-950 relative overflow-y-auto min-h-0">
+            <div className="w-full p-3 flex flex-col justify-between shrink-0 h-[220px] bg-slate-950 relative overflow-y-auto min-h-0">
               
               {/* Dynamic list of fighting party members (cards side by side or list) */}
               <div className="space-y-2 mb-4">
@@ -2663,16 +2663,16 @@ export default function App() {
                           <span className={`font-bold ${isKnockedOut ? "text-slate-500 line-through" : "text-slate-200"}`}>
                             {colle.name.split(" ")[0]} 
                           </span>
-                          <span className="text-[10px] text-slate-500 font-normal">LV.{colle.lv}</span>
+                          <span className="text-[12px] text-slate-500 font-normal">LV.{colle.lv}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400 bg-slate-950 px-1 rounded border border-slate-850">
+                        <span className="text-[12px] text-slate-400 bg-slate-950 px-1 rounded border border-slate-800">
                           {colle.className}
                         </span>
                       </div>
 
                       {/* HP Bar */}
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-mono leading-none">
+                        <div className="flex items-center justify-between text-[12px] font-mono leading-none">
                           <span className="text-slate-500">HEALTH HP</span>
                           <span className={isKnockedOut ? "text-red-500" : "text-emerald-400 font-semibold"}>
                             {colle.hp} / {colle.maxHp}
@@ -2690,7 +2690,7 @@ export default function App() {
 
                       {/* MP Bar */}
                       <div className="space-y-1 mt-1.5">
-                        <div className="flex items-center justify-between text-[10px] font-mono leading-none">
+                        <div className="flex items-center justify-between text-[12px] font-mono leading-none">
                           <span className="text-slate-500">ENERGY MP</span>
                           <span className="text-cyan-400 font-semibold">
                             {colle.mp} / {colle.maxMp}
@@ -2721,15 +2721,15 @@ export default function App() {
               </div>
 
               {/* LIVE ACTION REAL-TIME SCROLLING LOGS SCREEN */}
-              <div className="flex-1 flex flex-col justify-end min-h-[140px] bg-slate-900/60 rounded-xl border border-slate-850 p-3 overflow-hidden">
-                <p className="text-[10px] text-slate-500 font-mono mb-2 uppercase tracking-wide flex items-center gap-1 border-b border-slate-850 pb-1">
+              <div className="flex-1 flex flex-col justify-end min-h-[140px] bg-slate-900/60 rounded-xl border border-slate-800 p-3 overflow-hidden">
+                <p className="text-[12px] text-slate-500 font-mono mb-2 uppercase tracking-wide flex items-center gap-1 border-b border-slate-800 pb-1">
                   <FileText className="w-3.5 h-3.5 text-slate-500" />
                   戰場瞬時日誌數據流 (NARRATIVE FLOW)
                 </p>
                 
                 <div 
                   ref={logConsoleRef}
-                  className="flex-1 overflow-y-auto space-y-1.5 max-h-[160px] text-[11px] font-mono leading-relaxed text-slate-300 pr-1 select-none"
+                  className="flex-1 overflow-y-auto space-y-1.5 max-h-[160px] text-[13px] font-mono leading-relaxed text-slate-300 pr-1 select-none"
                 >
                   {narrativeLogs.slice(-15).map((log) => {
                     let textTheme = "text-slate-400";
@@ -2757,15 +2757,15 @@ export default function App() {
           /* =========================================================================
              TOWN VIEW MODE ACTIVE (Tavern, Shop, Exploration Setup, Quest Board)
              ======================================================================== */
-          <div className="flex-1 flex flex-col md:flex-row min-h-0 bg-[#080d16] divide-y md:divide-y-0 md:divide-x divide-slate-800">
+          <div className="flex-1 flex flex-col min-h-0 bg-[#080d16] divide-y divide-slate-800">
             
             {/* Left Column Navigation command panels */}
-            <div className="w-full md:w-[35%] p-4 flex flex-col justify-between shrink-0 bg-slate-900/40 overflow-y-auto min-h-0">
+            <div className="w-full p-4 flex flex-col justify-between shrink-0 bg-slate-900/40 overflow-y-auto min-h-0">
               
               <div className="space-y-4">
                 
                 {/* Visual command selection tab group */}
-                <div className="grid grid-cols-5 gap-1.5 font-mono text-center">
+                <div className="grid grid-cols-3 gap-1.5 font-mono text-center">
 
                   <button
                     id="btn-tab-explore"
@@ -2773,7 +2773,7 @@ export default function App() {
                     className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                       activeTab === "explore"
                         ? "bg-cyan-950/40 border-cyan-500 text-cyan-400 font-bold shadow-lg shadow-cyan-950"
-                        : "bg-slate-950 border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <Compass className="w-4 h-4" />
@@ -2786,7 +2786,7 @@ export default function App() {
                     className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                       activeTab === "tavern"
                         ? "bg-purple-950/40 border-purple-500 text-purple-400 font-bold shadow-lg shadow-purple-950"
-                        : "bg-slate-950 border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <UserPlus className="w-4 h-4" />
@@ -2799,7 +2799,7 @@ export default function App() {
                     className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                       activeTab === "blacksmith"
                         ? "bg-amber-950/45 border-amber-500 text-amber-500 font-bold shadow-lg shadow-amber-950"
-                        : "bg-slate-950 border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <Hammer className="w-4 h-4" />
@@ -2812,7 +2812,7 @@ export default function App() {
                     className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                       activeTab === "quests"
                         ? "bg-emerald-950/40 border-emerald-500 text-emerald-400 font-bold shadow-lg shadow-emerald-950"
-                        : "bg-slate-950 border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <Scroll className="w-4 h-4" />
@@ -2825,27 +2825,40 @@ export default function App() {
                     className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                       activeTab === "exchange"
                         ? "bg-yellow-950/40 border-yellow-500 text-yellow-400 font-bold shadow-lg shadow-yellow-950"
-                        : "bg-slate-950 border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     <Coins className="w-4 h-4" />
                     <span>星區交易所</span>
                   </button>
 
+                  <button
+                    id="btn-tab-party"
+                    onClick={() => { setActiveTab("party"); setItemUsageTargetSelector({ isOpen: false, item: null }); }}
+                    className={`py-3.5 rounded-lg border text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      activeTab === "party"
+                        ? "bg-indigo-950/40 border-indigo-500 text-indigo-300 font-bold shadow-lg shadow-indigo-950"
+                        : "bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>我方隊伍</span>
+                  </button>
+
                 </div>
 
-                <hr className="border-slate-850 my-1" />
+                <hr className="border-slate-800 my-1" />
 
                 {/* TAB WINDOW COMPONENT 1: EXPLORE PLACES */}
                 {activeTab === "explore" && (
                   <div className="space-y-3 font-mono">
-                    <div className="bg-slate-950 border border-slate-850 px-3 py-2 rounded-lg text-xs leading-relaxed text-slate-400">
+                    <div className="bg-slate-950 border border-slate-800 px-3 py-2 rounded-lg text-xs leading-relaxed text-slate-400">
                       <p className="font-semibold text-slate-200 mb-1">🧭 副本祕境探索部署 (Deploy Radar)</p>
                       選擇下方深空座標信號，點選「出戰群體打怪」隨即切換重整進攻面板。注意等級限制！每日 3 段出擊 (早/午/晚)，用完需休息。
                     </div>
 
                     {/* Time-of-day modifier hint */}
-                    <div className={`px-3 py-2 rounded-lg text-[11px] leading-relaxed border font-sans ${
+                    <div className={`px-3 py-2 rounded-lg text-[13px] leading-relaxed border font-sans ${
                       isDayExhausted
                         ? "bg-rose-950/30 border-rose-800/40 text-rose-300"
                         : currentTimeOfDay === "night"
@@ -2868,16 +2881,16 @@ export default function App() {
                     {/* NEW: Stellar Signal Decryption Widget */}
                     <div className="p-3 bg-slate-900 border border-cyan-500/20 rounded-xl space-y-2 shadow-inner">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5 uppercase font-mono">
+                        <span className="text-[13px] font-bold text-cyan-400 flex items-center gap-1.5 uppercase font-mono">
                           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
                           📡 宇宙黑匣子信號解碼儀 (Cosmic Decrypter)
                         </span>
-                        <span className="text-[9px] text-slate-400 font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-850">
+                        <span className="text-[11px] text-slate-400 font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                           DECRYPTED: {decryptedLogIds.length} / {LORE_RECORDS.length}
                         </span>
                       </div>
 
-                      <p className="text-[10px] text-slate-400 leading-normal font-sans">
+                      <p className="text-[12px] text-slate-400 leading-normal font-sans">
                         破解古代波形，獲取<strong className="text-amber-400 font-mono">深空祕案與各星區弱點情報</strong>，更可免費解析高額<strong className="text-cyan-400 font-mono">能量券、Stardust shards等戰備資源</strong>！
                       </p>
 
@@ -2898,13 +2911,13 @@ export default function App() {
                                 onClick={() => setActiveLoreDetail(log)}
                                 className="p-2 bg-slate-950/80 text-emerald-400 border border-emerald-500/20 rounded-lg hover:border-emerald-500/40 hover:bg-[#070d18] text-left transition-all cursor-pointer flex flex-col justify-between h-[64px]"
                               >
-                                <span className="text-[8px] font-bold tracking-wider font-mono opacity-60 flex items-center gap-1">
+                                <span className="text-[10px] font-bold tracking-wider font-mono opacity-60 flex items-center gap-1">
                                   🟢 {log.codename}
                                 </span>
-                                <span className="text-[10px] font-bold text-slate-200 truncate w-full">
+                                <span className="text-[12px] font-bold text-slate-200 truncate w-full">
                                   {log.title.replace(/[【】]/g, "")}
                                 </span>
-                                <span className="text-[8px] text-emerald-500 mt-1 hover:underline self-end">
+                                <span className="text-[10px] text-emerald-500 mt-1 hover:underline self-end">
                                   📖 讀取資訊
                                 </span>
                               </button>
@@ -2931,13 +2944,13 @@ export default function App() {
                                 className="p-2 bg-[#091e33]/40 text-cyan-400 border border-cyan-500/40 rounded-lg hover:bg-[#0f2a47] text-left transition-all cursor-pointer flex flex-col justify-between h-[64px] animate-pulse"
                                 title="點擊破譯獲取資源"
                               >
-                                <span className="text-[8px] font-bold tracking-wider font-mono opacity-80">
+                                <span className="text-[10px] font-bold tracking-wider font-mono opacity-80">
                                   📡 {log.codename}
                                 </span>
-                                <span className="text-[9px] font-semibold text-slate-300 truncate w-full">
+                                <span className="text-[11px] font-semibold text-slate-300 truncate w-full">
                                   可解鎖此頻譜...
                                 </span>
-                                <span className="text-[8px] text-cyan-300 font-extrabold flex items-center gap-0.5 self-end bg-cyan-950 px-1 py-0.2 rounded border border-cyan-900">
+                                <span className="text-[10px] text-cyan-300 font-extrabold flex items-center gap-0.5 self-end bg-cyan-950 px-1 py-0.2 rounded border border-cyan-900">
                                   ⚡ 破譯軌道
                                 </span>
                               </button>
@@ -2948,13 +2961,13 @@ export default function App() {
                                 key={log.id}
                                 className="p-2 bg-slate-950/20 text-slate-500 border border-slate-900 rounded-lg text-left flex flex-col justify-between h-[64px] opacity-50"
                               >
-                                <span className="text-[8px] font-bold tracking-wider font-mono opacity-50">
+                                <span className="text-[10px] font-bold tracking-wider font-mono opacity-50">
                                   🔒 {log.codename}
                                 </span>
-                                <span className="text-[9px] text-slate-600 truncate w-full">
+                                <span className="text-[11px] text-slate-600 truncate w-full">
                                   信號未解禁
                                 </span>
-                                <span className="text-[8px] text-red-500/80 font-mono self-end">
+                                <span className="text-[10px] text-red-500/80 font-mono self-end">
                                   {log.unlockedAtChapter !== undefined ? `需推進主線至 Ch.${log.unlockedAtChapter}` : `先鋒需達 Lv.${log.unlockedAtLv}`}
                                 </span>
                               </div>
@@ -2976,7 +2989,7 @@ export default function App() {
                               activeZoneId === zone.id
                                 ? `bg-slate-900 border-cyan-500/60 shadow-md`
                                 : isUnlocked
-                                ? "bg-slate-950 border-slate-850 hover:bg-slate-900/60"
+                                ? "bg-slate-950 border-slate-800 hover:bg-slate-900/60"
                                 : "bg-slate-950/30 border-slate-950 opacity-50"
                             }`}
                           >
@@ -2986,28 +2999,28 @@ export default function App() {
                                   <span>{getElementEmoji(zone.element)}</span>
                                   {zone.name}
                                 </h4>
-                                <span className={`text-[9px] px-1.5 py-0.2 rounded border  inline-block mt-1 ${elementStyle}`}>
+                                <span className={`text-[11px] px-1.5 py-0.2 rounded border  inline-block mt-1 ${elementStyle}`}>
                                   ELEMENT: {zone.element.toUpperCase()}
                                 </span>
                               </div>
 
-                              <span className={`text-[10px] font-mono font-bold ${isUnlocked ? "text-slate-400" : "text-rose-500"}`}>
+                              <span className={`text-[12px] font-mono font-bold ${isUnlocked ? "text-slate-400" : "text-rose-500"}`}>
                                 {isUnlocked ? `REQ.LV ${zone.minLevel}` : `🚨 REQ.LV ${zone.minLevel}`}
                               </span>
                             </div>
 
-                            <p className="mt-1.5 text-[11px] text-slate-450 leading-snug font-sans">
+                            <p className="mt-1.5 text-[13px] text-slate-400 leading-snug font-sans">
                               {zone.description}
                             </p>
 
                             {/* Monster species listing */}
-                            <div className="mt-2 flex flex-wrap gap-1 items-center text-[10px] text-slate-500 font-mono">
-                              <span className="text-[9px] text-[#3e5677] uppercase font-bold pr-1">棲息物種:</span>
+                            <div className="mt-2 flex flex-wrap gap-1 items-center text-[12px] text-slate-500 font-mono">
+                              <span className="text-[11px] text-[#3e5677] uppercase font-bold pr-1">棲息物種:</span>
                               {zone.monsters.map((key) => {
                                 const m = MONSTER_TEMPLATES[key];
                                 if (!m) return null;
                                 return (
-                                  <span key={key} className="bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded text-slate-300">
+                                  <span key={key} className="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-slate-300">
                                     {m.emoji} {m.name.substring(0, 4)} ({getElementEmoji(m.element)})
                                   </span>
                                 );
@@ -3018,7 +3031,7 @@ export default function App() {
                               <button
                                 onClick={() => setActiveZoneId(zone.id)}
                                 disabled={!isUnlocked}
-                                className={`text-[10px] px-2.5 py-1 rounded border font-bold uppercase transition-all cursor-pointer ${
+                                className={`text-[12px] px-2.5 py-1 rounded border font-bold uppercase transition-all cursor-pointer ${
                                   activeZoneId === zone.id
                                     ? "bg-cyan-500 hover:bg-cyan-400 text-slate-950 border-cyan-400 font-black shadow-cyan-950"
                                     : isUnlocked
@@ -3035,7 +3048,7 @@ export default function App() {
                                   startCombat(zone.id);
                                 }}
                                 disabled={!isUnlocked}
-                                className={`text-[11px] font-bold font-mono px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                                className={`text-[13px] font-bold font-mono px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                                   isUnlocked
                                     ? "bg-rose-500 hover:bg-rose-400 text-white shadow-lg shadow-rose-950/50"
                                     : "bg-slate-950 text-slate-600 border-slate-950 cursor-not-allowed"
@@ -3055,7 +3068,7 @@ export default function App() {
                 {/* TAB WINDOW COMPONENT: TRADING POST (EXCHANGE) */}
                 {activeTab === "exchange" && (
                   <div className="space-y-3 font-mono">
-                    <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                    <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                       <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                         <Coins className="w-3.5 h-3.5 text-yellow-400" /> 星區交易所 (Trading Post)
                       </p>
@@ -3064,24 +3077,24 @@ export default function App() {
 
                     {/* Daily limited stock */}
                     <div className="p-2.5 bg-slate-900 border border-yellow-500/20 rounded-xl space-y-2">
-                      <div className="text-[11px] font-bold text-yellow-400 uppercase">🪙 今日限定特賣 (Day {daysPassed})</div>
+                      <div className="text-[13px] font-bold text-yellow-400 uppercase">🪙 今日限定特賣 (Day {daysPassed})</div>
                       {exchangeStock.length === 0 ? (
-                        <div className="text-[10px] text-slate-500">今日特賣已售罄，明日再來！</div>
+                        <div className="text-[12px] text-slate-500">今日特賣已售罄，明日再來！</div>
                       ) : (
                         <div className="grid grid-cols-1 gap-1.5">
                           {exchangeStock.map((entry, i) => {
                             const tmpl = entry.kind === "gear" ? GEAR_TEMPLATES[entry.id] : items.find((it) => it.id === entry.id);
                             const label = entry.kind === "gear" ? GEAR_TEMPLATES[entry.id]?.name : `${(tmpl as Item)?.emoji || ""} ${(tmpl as Item)?.name || entry.id}`;
                             return (
-                              <div key={i} className="flex items-center justify-between bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5">
-                                <span className="text-[11px] text-slate-200">
+                              <div key={i} className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
+                                <span className="text-[13px] text-slate-200">
                                   {entry.kind === "gear" ? "🛡️" : "🧪"} {label}
-                                  {entry.rarity && <span className="ml-1 text-[9px] text-slate-400">[{GEAR_RARITY_LABEL[entry.rarity as GearRarity]}]</span>}
+                                  {entry.rarity && <span className="ml-1 text-[11px] text-slate-400">[{GEAR_RARITY_LABEL[entry.rarity as GearRarity]}]</span>}
                                 </span>
                                 <button
                                   onClick={() => buyFromExchangeStock(i)}
                                   disabled={gold < entry.price}
-                                  className={`text-[10px] px-2 py-1 rounded border font-bold ${gold < entry.price ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-slate-950 cursor-pointer"}`}
+                                  className={`text-[12px] px-2 py-1 rounded border font-bold ${gold < entry.price ? "bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed" : "bg-yellow-600 border-yellow-700 hover:bg-yellow-500 text-slate-950 cursor-pointer"}`}
                                 >
                                   {entry.price} ✨
                                 </button>
@@ -3094,29 +3107,29 @@ export default function App() {
 
                     {/* Materials buy / sell */}
                     <div className="space-y-1.5">
-                      <div className="text-[11px] font-bold text-slate-300 uppercase pt-1">💎 宇宙材料 (買 ×1.5 / 賣 ×0.5)</div>
+                      <div className="text-[13px] font-bold text-slate-300 uppercase pt-1">💎 宇宙材料 (買 ×1.5 / 賣 ×0.5)</div>
                       {Object.entries(MATERIALS).map(([id, mat]) => {
                         const owned = materials[id] || 0;
                         const buyP = materialBuyPrice(mat.rarity);
                         const sellP = materialSellPrice(mat.rarity);
                         return (
-                          <div key={id} className="flex items-center justify-between bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5">
-                            <span className="text-[11px] text-slate-200 flex items-center gap-1">
+                          <div key={id} className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
+                            <span className="text-[13px] text-slate-200 flex items-center gap-1">
                               {mat.emoji} {mat.name}
-                              <span className="text-[9px] text-slate-500">x{owned}</span>
+                              <span className="text-[11px] text-slate-500">x{owned}</span>
                             </span>
                             <div className="flex gap-1">
                               <button
                                 onClick={() => buyMaterial(id)}
                                 disabled={gold < buyP}
-                                className={`text-[10px] px-2 py-1 rounded border font-bold ${gold < buyP ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-emerald-700 border-emerald-800 hover:bg-emerald-600 text-white cursor-pointer"}`}
+                                className={`text-[12px] px-2 py-1 rounded border font-bold ${gold < buyP ? "bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed" : "bg-emerald-700 border-emerald-800 hover:bg-emerald-600 text-white cursor-pointer"}`}
                               >
                                 買 {buyP}
                               </button>
                               <button
                                 onClick={() => sellMaterial(id)}
                                 disabled={owned <= 0}
-                                className={`text-[10px] px-2 py-1 rounded border font-bold ${owned <= 0 ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
+                                className={`text-[12px] px-2 py-1 rounded border font-bold ${owned <= 0 ? "bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
                               >
                                 賣 {sellP}
                               </button>
@@ -3128,22 +3141,22 @@ export default function App() {
 
                     {/* Gear sell */}
                     <div className="space-y-1.5">
-                      <div className="text-[11px] font-bold text-slate-300 uppercase pt-1">🛡️ 出售掉落裝備</div>
+                      <div className="text-[13px] font-bold text-slate-300 uppercase pt-1">🛡️ 出售掉落裝備</div>
                       {gearInventory.length === 0 ? (
-                        <div className="text-[10px] text-slate-500">裝備庫是空的，去狩獵掉落裝備吧！</div>
+                        <div className="text-[12px] text-slate-500">裝備庫是空的，去狩獵掉落裝備吧！</div>
                       ) : (
                         gearInventory.map((g) => {
                           const equipped = party.some((m) => m.equipment[g.slot].gearUid === g.uid);
                           return (
                             <div key={g.uid} className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 border ${GEAR_RARITY_COLOR[g.rarity]}`}>
-                              <span className="text-[11px] flex items-center gap-1">
+                              <span className="text-[13px] flex items-center gap-1">
                                 {g.slot === "weapon" ? "⚔️" : "🛡️"} {g.name}
-                                <span className="text-[9px] opacity-70">[{GEAR_RARITY_LABEL[g.rarity]}]</span>
+                                <span className="text-[11px] opacity-70">[{GEAR_RARITY_LABEL[g.rarity]}]</span>
                               </span>
                               <button
                                 onClick={() => sellGear(g.uid)}
                                 disabled={equipped}
-                                className={`text-[10px] px-2 py-1 rounded border font-bold ${equipped ? "bg-slate-900 border-slate-850 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
+                                className={`text-[12px] px-2 py-1 rounded border font-bold ${equipped ? "bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
                               >
                                 {equipped ? "裝備中" : `賣 ${gearSellValue(g)} ✨`}
                               </button>
@@ -3158,7 +3171,7 @@ export default function App() {
                 {/* TAB WINDOW COMPONENT 2: TAVERN RECRUITMENT */}
                 {activeTab === "tavern" && (
                   <div className="space-y-3 font-mono">
-                    <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                    <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                       <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                         <Coffee className="w-3.5 h-3.5 text-[#cfb794]" /> 太空酒館休眠艙 (Tavern Bar)
                       </p>
@@ -3194,7 +3207,7 @@ export default function App() {
                           <div
                             key={candidate.id}
                             className={`p-3 rounded-lg border bg-slate-950/80 transition-all ${
-                              isEnlisted ? "border-slate-850 opacity-75" : "border-slate-850 hover:border-slate-800"
+                              isEnlisted ? "border-slate-800 opacity-75" : "border-slate-800 hover:border-slate-800"
                             }`}
                           >
                             <div className="flex items-start justify-between">
@@ -3203,36 +3216,36 @@ export default function App() {
                                   <span>{getElementEmoji(candidate.element)}</span>
                                   {candidate.name}
                                 </h5>
-                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                <p className="text-[12px] text-slate-500 font-mono mt-0.5">
                                   職業：{candidate.className} ({candidate.title})
                                 </p>
                               </div>
-                              <span className={`text-[10px] font-mono px-1.5 rounded border ${getElementColorClass(candidate.element)}`}>
+                              <span className={`text-[12px] font-mono px-1.5 rounded border ${getElementColorClass(candidate.element)}`}>
                                 {candidate.element}
                               </span>
                             </div>
 
-                            <p className="mt-1.5 text-[11px] text-slate-450 leading-relaxed font-sans">
+                            <p className="mt-1.5 text-[13px] text-slate-400 leading-relaxed font-sans">
                               ⚔️ 技能: <span className="font-bold text-cyan-400">【{candidate.activeSkill.name}】</span>: {candidate.activeSkill.description}
                             </p>
 
-                            <div className="mt-2 flex items-center justify-between font-mono text-[10px] bg-slate-950 p-1.5 rounded border border-slate-900/60 text-slate-400">
+                            <div className="mt-2 flex items-center justify-between font-mono text-[12px] bg-slate-950 p-1.5 rounded border border-slate-900/60 text-slate-400">
                               <span>生命 (HP): {candidate.hp}</span>
                               <span>法術 (MP): {candidate.mp}</span>
                               <span>面板 (ATK): {candidate.atk}</span>
                             </div>
 
                             <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-900 text-xs">
-                              <span className="text-amber-400 font-bold font-mono text-[11px]">聘金: 100 ✨ 金幣</span>
+                              <span className="text-amber-400 font-bold font-mono text-[13px]">聘金: 100 ✨ 金幣</span>
 
                               <button
                                 onClick={() => recruitCompanion(candidate.id)}
                                 disabled={isEnlisted || party.length >= 4 || gold < 100}
-                                className={`px-3 py-1.5 rounded font-bold transition-all text-[11px] cursor-pointer ${
+                                className={`px-3 py-1.5 rounded font-bold transition-all text-[13px] cursor-pointer ${
                                   isEnlisted
-                                    ? "bg-slate-900 text-slate-500 border border-slate-850 cursor-not-allowed"
+                                    ? "bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed"
                                     : party.length >= 4
-                                    ? "bg-slate-900 text-slate-600 border border-slate-850 cursor-not-allowed"
+                                    ? "bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed"
                                     : "bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-950"
                                 }`}
                               >
@@ -3257,7 +3270,7 @@ export default function App() {
                         className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "forge"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                         }`}
                       >
                         🏪 戰備物資
@@ -3267,7 +3280,7 @@ export default function App() {
                         className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer relative ${
                           smithySubTab === "gear"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                         }`}
                       >
                         🛡️ 裝備庫{gearInventory.length > 0 ? ` (${gearInventory.length})` : ""}
@@ -3277,7 +3290,7 @@ export default function App() {
                         className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "alchemy"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                         }`}
                       >
                         🧪 鍊金合成
@@ -3287,7 +3300,7 @@ export default function App() {
                         className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           smithySubTab === "awaken"
                             ? "bg-amber-500 border-amber-600 text-slate-950"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                         }`}
                       >
                         ☀️ 聖格覺醒
@@ -3296,7 +3309,7 @@ export default function App() {
 
                     {smithySubTab === "gear" && (
                       <div className="space-y-3">
-                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                             🛡️ 戰備裝備庫 (Gear Vault)
                           </p>
@@ -3304,7 +3317,7 @@ export default function App() {
                         </div>
 
                         {gearInventory.length === 0 ? (
-                          <div className="text-center text-[11px] text-slate-500 py-6 border border-dashed border-slate-800 rounded-lg">
+                          <div className="text-center text-[13px] text-slate-500 py-6 border border-dashed border-slate-800 rounded-lg">
                             尚無掉落裝備。擊敗精英 / 域主魔物有機會獲得稀有裝備！夜晚掉落率更高。
                           </div>
                         ) : (
@@ -3316,13 +3329,13 @@ export default function App() {
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold flex items-center gap-1">
                                       {g.slot === "weapon" ? "⚔️" : "🛡️"} {g.name}
-                                      <span className="text-[9px] px-1 rounded border opacity-80">{GEAR_RARITY_LABEL[g.rarity]}</span>
+                                      <span className="text-[11px] px-1 rounded border opacity-80">{GEAR_RARITY_LABEL[g.rarity]}</span>
                                     </span>
                                     {equippedBy && (
-                                      <span className="text-[9px] text-emerald-400 font-mono">● 裝備中：{equippedBy.name.split(" ")[0]}</span>
+                                      <span className="text-[11px] text-emerald-400 font-mono">● 裝備中：{equippedBy.name.split(" ")[0]}</span>
                                     )}
                                   </div>
-                                  <div className="text-[10px] text-slate-300 font-mono mt-1">
+                                  <div className="text-[12px] text-slate-300 font-mono mt-1">
                                     {g.atkBonus > 0 && <span className="mr-2">⚔️ ATK +{g.atkBonus}</span>}
                                     {g.defBonus > 0 && <span className="mr-2">🛡️ DEF +{g.defBonus}</span>}
                                     {g.hpBonus > 0 && <span className="mr-2">❤️ HP +{g.hpBonus}</span>}
@@ -3336,7 +3349,7 @@ export default function App() {
                                           key={m.id}
                                           onClick={() => equipGear(m.id, g.uid)}
                                           disabled={isOn}
-                                          className={`text-[10px] px-2 py-1 rounded border font-mono cursor-pointer transition-all ${
+                                          className={`text-[12px] px-2 py-1 rounded border font-mono cursor-pointer transition-all ${
                                             isOn
                                               ? "bg-emerald-900/40 border-emerald-700 text-emerald-300 cursor-not-allowed"
                                               : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800"
@@ -3358,14 +3371,14 @@ export default function App() {
                     {smithySubTab === "forge" && (
                       <div className="space-y-3">
                         {/* Gear / blacksmith upgrade tab header */}
-                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                             <Hammer className="w-3.5 h-3.5 text-amber-500" /> 旺角超臨界鐵匠鋪 (Smithy Forge)
                           </p>
                           使用能源金幣，提升武力面板與合金防護強度。等級越高，強化所需金幣費額增加。
                         </div>
 
-                        <div className="space-y-2 bg-slate-900/40 p-2.5 rounded-lg border border-slate-850">
+                        <div className="space-y-2 bg-slate-900/40 p-2.5 rounded-lg border border-slate-800">
                           <h4 className="text-xs font-bold text-slate-300 pb-1 flex items-center gap-1.5 uppercase tracking-wider">
                             🛡️ 戰略消耗儲備補給 (Blacksmith Store)
                           </h4>
@@ -3380,28 +3393,28 @@ export default function App() {
                                   <span className="text-xl shrink-0">{it.emoji}</span>
                                   <div className="truncate">
                                     <h5 className="font-bold text-slate-100 truncate">{it.name}</h5>
-                                    <p className="text-[9px] text-slate-550 truncate">{it.description.substring(0, 32)}...</p>
+                                    <p className="text-[11px] text-slate-500 truncate">{it.description.substring(0, 32)}...</p>
                                   </div>
                                 </div>
 
                                 <div className="flex items-center gap-2 shrink-0 font-bold ml-2">
                                   <div className="text-right">
-                                    <span className="text-amber-400 text-[11px] block">{it.price} ✨</span>
-                                    <span className="text-[10px] text-slate-500">擁有: x{it.count}</span>
+                                    <span className="text-amber-400 text-[13px] block">{it.price} ✨</span>
+                                    <span className="text-[12px] text-slate-500">擁有: x{it.count}</span>
                                   </div>
 
                                   <div className="flex flex-col gap-1">
                                     <button
                                       onClick={() => buyConsumable(it.id)}
                                       disabled={gold < it.price}
-                                      className="px-1.5 py-0.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-400 rounded text-[10px] cursor-pointer"
+                                      className="px-1.5 py-0.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-400 rounded text-[12px] cursor-pointer"
                                     >
                                       購買
                                     </button>
                                     {it.count > 0 && (
                                       <button
                                         onClick={() => sellConsumable(it.id)}
-                                        className="px-1.5 py-0.5 bg-amber-950 hover:bg-amber-900 border border-amber-900 text-amber-400 rounded text-[10px] cursor-pointer"
+                                        className="px-1.5 py-0.5 bg-amber-950 hover:bg-amber-900 border border-amber-900 text-amber-400 rounded text-[12px] cursor-pointer"
                                       >
                                         回收
                                       </button>
@@ -3417,7 +3430,7 @@ export default function App() {
 
                     {smithySubTab === "alchemy" && (
                       <div className="space-y-3">
-                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                             <Compass className="w-3.5 h-3.5 text-amber-500" /> 太空探險殘骸物資儲量 (Cargo Leftovers)
                           </p>
@@ -3427,7 +3440,7 @@ export default function App() {
                               const mat = MATERIALS[matId];
                               const qty = materials[matId] || 0;
                               return (
-                                <div key={matId} className="bg-slate-900 px-2 py-1 border border-slate-800 rounded flex items-center justify-between text-[11px]">
+                                <div key={matId} className="bg-slate-900 px-2 py-1 border border-slate-800 rounded flex items-center justify-between text-[13px]">
                                   <span className="text-slate-300 flex items-center gap-1">
                                     <span>{mat.emoji}</span>
                                     <span>{mat.name}</span>
@@ -3451,23 +3464,23 @@ export default function App() {
                             const canCraft = goldMet && matsMet && !alreadyHave;
 
                             return (
-                              <div key={artId} className={`p-3 rounded-lg border bg-slate-950 text-xs ${alreadyHave ? "border-amber-600/60 bg-amber-950/10" : "border-slate-850"}`}>
+                              <div key={artId} className={`p-3 rounded-lg border bg-slate-950 text-xs ${alreadyHave ? "border-amber-600/60 bg-amber-950/10" : "border-slate-800"}`}>
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="font-bold text-slate-200 flex items-center gap-1.5">
                                     <span className="text-base">{art.emoji}</span>
                                     <span className="text-amber-400">{art.name}</span>
                                   </span>
                                   {alreadyHave ? (
-                                    <span className="text-[10px] bg-amber-950 text-amber-300 px-1.5 py-0.2 rounded border border-amber-805">已生效</span>
+                                    <span className="text-[12px] bg-amber-950 text-amber-300 px-1.5 py-0.2 rounded border border-amber-800">已生效</span>
                                   ) : (
-                                    <span className="text-[10px] bg-slate-900 text-slate-400 px-1.5 py-0.2 rounded">未擁有</span>
+                                    <span className="text-[12px] bg-slate-900 text-slate-400 px-1.5 py-0.2 rounded">未擁有</span>
                                   )}
                                 </div>
-                                <p className="text-[11px] text-slate-400 mb-2 leading-relaxed font-sans">{art.description}</p>
+                                <p className="text-[13px] text-slate-400 mb-2 leading-relaxed font-sans">{art.description}</p>
                                 
-                                <div className="bg-slate-900 border border-slate-850 p-2 rounded-md space-y-1 mb-2.5">
-                                  <div className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">熔煉材料需求:</div>
-                                  <div className="grid grid-cols-1 gap-0.5 text-[10px] font-mono leading-none">
+                                <div className="bg-slate-900 border border-slate-800 p-2 rounded-md space-y-1 mb-2.5">
+                                  <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">熔煉材料需求:</div>
+                                  <div className="grid grid-cols-1 gap-0.5 text-[12px] font-mono leading-none">
                                     <div className={goldMet ? "text-slate-300" : "text-rose-400 font-semibold"}>
                                       • ✨ 能源金幣: {gold} / {art.recipe.gold}
                                     </div>
@@ -3506,7 +3519,7 @@ export default function App() {
 
                     {smithySubTab === "awaken" && (
                       <div className="space-y-3">
-                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                             <Crown className="w-3.5 h-3.5 text-yellow-400" /> 微中子聖格轉職覺醒壇 (Awakening Altar)
                           </p>
@@ -3521,30 +3534,30 @@ export default function App() {
                             const isAwakened = com.title.includes("🌟");
                             const canAwake = com.lv >= 5 && !isAwakened && gold >= 250;
                             return (
-                              <div key={com.id} className={`p-3 rounded-lg border bg-slate-950 text-xs flex items-center justify-between ${isAwakened ? "border-yellow-600/40 bg-yellow-950/10" : "border-slate-850"}`}>
+                              <div key={com.id} className={`p-3 rounded-lg border bg-slate-950 text-xs flex items-center justify-between ${isAwakened ? "border-yellow-600/40 bg-yellow-950/10" : "border-slate-800"}`}>
                                 <div>
                                   <div className="flex items-center gap-1.5 mb-1">
                                     <span className="text-sm shrink-0">{com.className === "Hero" ? "🧑‍🚀" : com.className === "Wizard" ? "🧙‍♂️" : com.className === "Priest" ? "👩‍⚕️" : com.className === "Assassin" ? "🥷" : "🛡️"}</span>
                                     <h4 className="font-bold text-slate-200 text-sm">{com.name}</h4>
-                                    <span className="text-[10px] text-slate-500">({com.className})</span>
+                                    <span className="text-[12px] text-slate-500">({com.className})</span>
                                   </div>
-                                  <p className="text-[10px] text-slate-400">當前職稱: <span className="text-amber-400 font-semibold">{com.title}</span></p>
-                                  <p className="text-[10px] text-slate-500">當前等級: <span className={com.lv >= 5 ? "text-emerald-400 font-bold" : "text-slate-400"}>LV.{com.lv}</span> / 5</p>
+                                  <p className="text-[12px] text-slate-400">當前職稱: <span className="text-amber-400 font-semibold">{com.title}</span></p>
+                                  <p className="text-[12px] text-slate-500">當前等級: <span className={com.lv >= 5 ? "text-emerald-400 font-bold" : "text-slate-400"}>LV.{com.lv}</span> / 5</p>
                                 </div>
 
                                 <div>
                                   {isAwakened ? (
-                                    <span className="text-[10px] text-yellow-400 font-bold bg-yellow-950/40 px-2 py-1 rounded border border-yellow-800">
+                                    <span className="text-[12px] text-yellow-400 font-bold bg-yellow-950/40 px-2 py-1 rounded border border-yellow-800">
                                       ★ 已登峰
                                     </span>
                                   ) : (
                                     <button
                                       onClick={() => awakenCharacter(com.id)}
                                       disabled={!canAwake}
-                                      className={`py-1 py-2 rounded font-bold text-[10px] cursor-pointer transition-all px-2 md:px-3 ${
+                                      className={`py-1 py-2 rounded font-bold text-[12px] cursor-pointer transition-all px-2 ${
                                         canAwake 
-                                          ? "bg-yellow-500 hover:bg-yellow-450 text-slate-950 shadow-md shadow-yellow-950" 
-                                          : "bg-slate-900 border border-slate-850 text-slate-600 cursor-not-allowed"
+                                          ? "bg-yellow-500 hover:bg-yellow-400 text-slate-950 shadow-md shadow-yellow-950" 
+                                          : "bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed"
                                       }`}
                                     >
                                       覺醒
@@ -3572,7 +3585,7 @@ export default function App() {
                         className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           questsSubTab === "board"
                             ? "bg-emerald-500 border-emerald-600 text-slate-950"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                         }`}
                       >
                         📜 公會佈告欄
@@ -3582,7 +3595,7 @@ export default function App() {
                         className={`py-1.5 px-3 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                           questsSubTab === "achievements"
                             ? "bg-emerald-500 border-emerald-600 text-slate-950"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                         }`}
                       >
                         🎖️ 群星里程碑
@@ -3591,7 +3604,7 @@ export default function App() {
 
                     {questsSubTab === "board" && (
                       <div className="space-y-3">
-                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                             <Scroll className="w-3.5 h-3.5 text-emerald-400" /> 公會告示任務中心 (Quest Board) · 主線 Ch.{currentChapter}
                           </p>
@@ -3607,7 +3620,7 @@ export default function App() {
                               className={`py-1.5 px-2 text-xs font-bold rounded-md border text-center transition-all cursor-pointer ${
                                 questKindTab === k
                                   ? "bg-emerald-500 border-emerald-600 text-slate-950"
-                                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                               }`}
                             >
                               {label}
@@ -3630,11 +3643,11 @@ export default function App() {
                                 <div key={q.id} className="p-3 rounded-lg border bg-slate-950/30 border-slate-900 opacity-60">
                                   <div className="flex items-center justify-between text-xs">
                                     <h4 className="font-mono font-bold text-slate-500">🔒 {q.title}</h4>
-                                    <span className="text-[9px] text-rose-400/80 font-mono">
+                                    <span className="text-[11px] text-rose-400/80 font-mono">
                                       {q.kind === "main" ? "完成前一章節解鎖" : `需推進主線至 Ch.${q.chapter ?? 1}`}
                                     </span>
                                   </div>
-                                  <p className="text-[10px] text-slate-600 mt-1 font-sans">尚未解鎖此開拓指令。</p>
+                                  <p className="text-[12px] text-slate-600 mt-1 font-sans">尚未解鎖此開拓指令。</p>
                                 </div>
                               );
                             }
@@ -3647,7 +3660,7 @@ export default function App() {
                                     ? "bg-slate-950/20 border-slate-900/60 opacity-60 text-slate-500"
                                     : isReady
                                     ? "bg-emerald-950/25 border-emerald-600/60 text-emerald-400"
-                                    : "bg-slate-950 border-slate-850"
+                                    : "bg-slate-950 border-slate-800"
                                 }`}
                               >
                                 <div className="flex items-start justify-between mb-1 text-xs">
@@ -3655,27 +3668,27 @@ export default function App() {
                                     <h4 className={`font-mono font-bold ${isCompleted ? "line-through text-slate-600" : "text-slate-200"}`}>
                                       {q.title}
                                     </h4>
-                                    <span className="text-[10px] text-slate-500 font-normal">指令代碼: {q.id.toUpperCase()}</span>
+                                    <span className="text-[12px] text-slate-500 font-normal">指令代碼: {q.id.toUpperCase()}</span>
                                   </div>
 
-                                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                                  <span className={`text-[12px] font-bold px-1.5 py-0.2 rounded font-mono ${
                                     isCompleted
-                                      ? "bg-slate-900 border border-slate-850 text-slate-500"
+                                      ? "bg-slate-900 border border-slate-800 text-slate-500"
                                       : isReady
                                       ? "bg-emerald-950 text-emerald-400 border border-emerald-800 animate-pulse"
-                                      : "bg-slate-900 border border-slate-850 text-slate-400"
+                                      : "bg-slate-900 border border-slate-800 text-slate-400"
                                   }`}>
                                     {isCompleted ? "已完成" : isReady ? "● 待領賞" : "進度中"}
                                   </span>
                                 </div>
 
-                                <p className="text-[11px] text-slate-400 leading-snug font-sans mb-2">
+                                <p className="text-[13px] text-slate-400 leading-snug font-sans mb-2">
                                   {q.description}
                                 </p>
 
                                 {/* Story narrative (main line) */}
                                 {q.kind === "main" && (q.storyBefore || (isCompleted && q.storyAfter)) && (
-                                  <p className="text-[10px] text-indigo-300/80 italic leading-snug font-sans mb-2 border-l-2 border-indigo-800/50 pl-2">
+                                  <p className="text-[12px] text-indigo-300/80 italic leading-snug font-sans mb-2 border-l-2 border-indigo-800/50 pl-2">
                                     📖 {isCompleted && q.storyAfter ? q.storyAfter : q.storyBefore}
                                   </p>
                                 )}
@@ -3683,7 +3696,7 @@ export default function App() {
                                 {/* Live progression tracking */}
                                 {!isCompleted && (
                                   <div className="space-y-1">
-                                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                                    <div className="flex items-center justify-between text-[12px] font-mono text-slate-500">
                                       <span>任務指令進度 ({percent}%)</span>
                                       <span className="font-bold text-slate-300">
                                         {q.currentValue} / {q.targetValue}
@@ -3701,7 +3714,7 @@ export default function App() {
                                 )}
 
                                 {/* Rewards info */}
-                                <div className="mt-3 pt-2.5 border-t border-slate-900 flex justify-between items-center text-[10px] font-mono">
+                                <div className="mt-3 pt-2.5 border-t border-slate-900 flex justify-between items-center text-[12px] font-mono">
                                   <div className="flex items-center gap-3">
                                     <span className="text-amber-500">金幣 +{q.rewardGold} ✨</span>
                                     <span className="text-violet-400">經驗 +{q.rewardExp} EXP</span>
@@ -3710,7 +3723,7 @@ export default function App() {
                                   {isReady && (
                                     <button
                                       onClick={() => claimQuestReward(q.id)}
-                                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1 text-[11px] rounded transition-all cursor-pointer flex items-center gap-1"
+                                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1 text-[13px] rounded transition-all cursor-pointer flex items-center gap-1"
                                     >
                                       Claim 領獎密鑰
                                     </button>
@@ -3725,7 +3738,7 @@ export default function App() {
 
                     {questsSubTab === "achievements" && (
                       <div className="space-y-3">
-                        <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
+                        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-xs leading-relaxed text-slate-400">
                           <p className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
                             <Crown className="w-3.5 h-3.5 text-yellow-400" /> 太空高能冒險成就盤 (Milestones)
                           </p>
@@ -3759,7 +3772,7 @@ export default function App() {
                                     ? "bg-slate-950/20 border-slate-900/60 opacity-60" 
                                     : meetsReq 
                                     ? "bg-yellow-950/20 border-yellow-600 text-yellow-400" 
-                                    : "bg-slate-950 border-slate-850"
+                                    : "bg-slate-950 border-slate-800"
                                 }`}
                               >
                                 <div className="flex justify-between items-start mb-1">
@@ -3767,12 +3780,12 @@ export default function App() {
                                     <h4 className={`font-bold font-mono text-sm leading-snug ${isClaimed ? "text-slate-500" : "text-amber-400"}`}>
                                       {ach.emoji || "🎖️"} {ach.title}
                                     </h4>
-                                    <p className="text-[10px] text-slate-500 mt-0.5">量子成就代號: {ach.id.toUpperCase()}</p>
+                                    <p className="text-[12px] text-slate-500 mt-0.5">量子成就代號: {ach.id.toUpperCase()}</p>
                                   </div>
 
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                  <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${
                                     isClaimed 
-                                      ? "bg-slate-900 text-slate-500 border border-slate-850" 
+                                      ? "bg-slate-900 text-slate-500 border border-slate-800" 
                                       : meetsReq 
                                       ? "bg-yellow-950 text-yellow-400 border border-yellow-800 animate-pulse" 
                                       : "bg-slate-900 text-slate-400"
@@ -3781,11 +3794,11 @@ export default function App() {
                                   </span>
                                 </div>
 
-                                <p className="text-[11px] text-slate-400 mb-2 leading-relaxed font-sans">{ach.description}</p>
+                                <p className="text-[13px] text-slate-400 mb-2 leading-relaxed font-sans">{ach.description}</p>
 
                                 {!isClaimed && (
                                   <div className="space-y-1 mb-2.5">
-                                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-500">
+                                    <div className="flex justify-between items-center text-[12px] font-mono text-slate-500">
                                       <span>指標進度 ({percent}%)</span>
                                       <span className="font-bold text-slate-300">{currentVal} / {ach.targetValue}</span>
                                     </div>
@@ -3798,12 +3811,12 @@ export default function App() {
                                   </div>
                                 )}
 
-                                <div className="pt-2 border-t border-slate-900/60 flex justify-between items-center text-[10px]">
+                                <div className="pt-2 border-t border-slate-900/60 flex justify-between items-center text-[12px]">
                                   <span className="text-amber-500 font-bold">獎勵: 金幣 +{ach.rewardGold} ✨</span>
                                   {meetsReq && !isClaimed && (
                                     <button
                                       onClick={() => claimAchievement(ach.id)}
-                                      className="bg-yellow-500 hover:bg-yellow-450 text-slate-950 font-extrabold px-3 py-1 rounded text-[10px] transition-all cursor-pointer shadow-sm shadow-yellow-900"
+                                      className="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-extrabold px-3 py-1 rounded text-[12px] transition-all cursor-pointer shadow-sm shadow-yellow-900"
                                     >
                                       🏅 領取封賞
                                     </button>
@@ -3821,36 +3834,11 @@ export default function App() {
 
               </div>
 
-              {/* OUT OF COMBAT ACTION LOG CENTER */}
-              <div className="mt-4 pt-3 border-t border-slate-850 flex flex-col justify-end min-h-[140px] bg-slate-950/80 rounded-xl p-3 overflow-hidden">
-                <p className="text-[10px] text-slate-500 font-mono mb-2 uppercase tracking-wide flex items-center gap-1 border-b border-slate-850 pb-1">
-                  <FileText className="w-3.5 h-3.5 text-slate-500" />
-                  戰備指揮室探測反饋日誌 (Town Logs)
-                </p>
-
-                <div
-                  ref={logConsoleRef}
-                  className="flex-1 overflow-y-auto space-y-1 max-h-[140px] text-[11px] font-mono leading-relaxed text-slate-400 pr-1 select-none"
-                >
-                  {narrativeLogs.map((log) => {
-                    let logStyle = "text-slate-400";
-                    if (log.type === "system") logStyle = "text-cyan-400";
-                    if (log.type === "player_action") logStyle = "text-[#628dd1]";
-                    if (log.type === "victory") logStyle = "text-emerald-400 font-bold";
-                    if (log.type === "gameover") logStyle = "text-rose-400";
-                    return (
-                      <div key={log.id} className={`${logStyle} break-words`}>
-                        {log.text}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
             </div>
 
-            {/* Right Column: Party and character lists */}
-            <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col justify-between space-y-4">
+            {/* 我方隊伍 tab: roster, gear upgrades, element affinity chart */}
+            {activeTab === "party" && (
+            <div className="flex-1 p-4 overflow-y-auto flex flex-col justify-between space-y-4">
               
               <div>
                 
@@ -3863,7 +3851,7 @@ export default function App() {
 
                   {/* Manual Quick Inventory bag panel */}
                   {items.some((i) => i.count > 0) && (
-                    <div className="text-xs font-mono bg-slate-900 border border-slate-850 px-2.5 py-1 rounded-md flex items-center gap-2">
+                    <div className="text-xs font-mono bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md flex items-center gap-2">
                       <span className="text-slate-500 uppercase">隨身整備藥水背包:</span>
                       <div className="flex gap-1.5 items-center">
                         {items.map((i) => {
@@ -3872,7 +3860,7 @@ export default function App() {
                             <button
                               key={i.id}
                               onClick={() => setItemUsageTargetSelector({ isOpen: true, item: i })}
-                              className="bg-slate-950 hover:bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded border border-slate-800 flex items-center gap-0.5 cursor-pointer text-[10px]"
+                              className="bg-slate-950 hover:bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded border border-slate-800 flex items-center gap-0.5 cursor-pointer text-[12px]"
                               title={`點擊對隊友使用 ${i.name}`}
                             >
                               <span>{i.emoji}</span>
@@ -3899,7 +3887,7 @@ export default function App() {
                         [關閉]
                       </button>
                     </div>
-                    <p className="text-slate-400 text-[10px] leading-snug mb-3">
+                    <p className="text-slate-400 text-[12px] leading-snug mb-3">
                       選取下方一個要施加此補給修護的目標隊員：
                     </p>
                     <div className="grid grid-cols-4 gap-2">
@@ -3912,10 +3900,10 @@ export default function App() {
                           <button
                             key={memb.id}
                             onClick={() => useItemOutOfCombat(itemUsageTargetSelector.item!.id, idx)}
-                            className="bg-slate-900 hover:bg-slate-800 text-slate-300 py-2 border border-slate-850 rounded hover:border-cyan-800 text-[11px] cursor-pointer"
+                            className="bg-slate-900 hover:bg-slate-800 text-slate-300 py-2 border border-slate-800 rounded hover:border-cyan-800 text-[13px] cursor-pointer"
                           >
                             <span>{memb.name.split(" ")[0]}</span>
-                            <span className="block text-[9px] text-slate-500 mt-0.5 font-mono">
+                            <span className="block text-[11px] text-slate-500 mt-0.5 font-mono">
                               (HP: {memb.hp}/{memb.maxHp})
                             </span>
                           </button>
@@ -3926,7 +3914,7 @@ export default function App() {
                 )}
 
                 {/* Detailed column cards for each party companion */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {party.map((com, index) => {
                     const isFainted = com.hp <= 0 || com.isDead;
                     const weaponCost = com.equipment.weapon.level * 25;
@@ -3938,7 +3926,7 @@ export default function App() {
                       <div
                         key={com.id}
                         className={`bg-slate-900/60 border rounded-xl p-4 transition-all relative overflow-hidden flex flex-col justify-between ${
-                          isFainted ? "border-red-950/80 bg-red-950/5/30" : "border-slate-850 hover:border-slate-800"
+                          isFainted ? "border-red-950/80 bg-red-950/5/30" : "border-slate-800 hover:border-slate-800"
                         }`}
                       >
                         
@@ -3947,7 +3935,7 @@ export default function App() {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
                               {/* Glowing circle representation */}
-                              <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-850 flex items-center justify-center text-xl shadow-inner relative">
+                              <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-xl shadow-inner relative">
                                 {com.className === "Hero" ? "👤" : com.className === "Wizard" ? "🧙‍♀️" : com.className === "Priest" ? "🕊️" : com.className === "Assassin" ? "🗡️" : "🛡️"}
                                 <span className="absolute -bottom-1 -right-1 text-xs">
                                   {getElementEmoji(com.element)}
@@ -3956,23 +3944,23 @@ export default function App() {
                               <div>
                                 <h4 className={`text-sm font-bold tracking-wide font-mono ${isFainted ? "text-slate-500 line-through" : "text-slate-100"}`}>
                                   {com.name}
-                                  {com.className === "Hero" && <span className="text-[10px] text-amber-500 ml-1">★</span>}
+                                  {com.className === "Hero" && <span className="text-[12px] text-amber-500 ml-1">★</span>}
                                 </h4>
-                                <span className="text-[10px] text-slate-500 font-mono">
+                                <span className="text-[12px] text-slate-500 font-mono">
                                   LV.{com.lv} {com.className} • {com.title}
                                 </span>
                               </div>
                             </div>
 
-                            <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border ${getElementColorClass(com.element)}`}>
+                            <span className={`text-[12px] uppercase font-mono px-2 py-0.5 rounded border ${getElementColorClass(com.element)}`}>
                               {com.element.toUpperCase()}
                             </span>
                           </div>
 
                           {/* Progress Health Bar */}
                           <div className="space-y-1 mb-2">
-                            <div className="flex justify-between text-[10px] font-mono leading-none">
-                              <span className="text-slate-550 flex items-center gap-0.5"><Heart className="w-3 h-3 text-rose-500" /> HP</span>
+                            <div className="flex justify-between text-[12px] font-mono leading-none">
+                              <span className="text-slate-500 flex items-center gap-0.5"><Heart className="w-3 h-3 text-rose-500" /> HP</span>
                               <span className={isFainted ? "text-rose-500" : "text-emerald-400 font-bold"}>
                                 {com.hp} / {com.maxHp} {isFainted && "[ 🚨 已死機 ]"}
                               </span>
@@ -3987,8 +3975,8 @@ export default function App() {
 
                           {/* Progress Energy Mana Bar */}
                           <div className="space-y-1 mb-2">
-                            <div className="flex justify-between text-[10px] font-mono leading-none">
-                              <span className="text-slate-550 flex items-center gap-0.5"><Sparkles className="w-3 h-3 text-cyan-400" /> MP</span>
+                            <div className="flex justify-between text-[12px] font-mono leading-none">
+                              <span className="text-slate-500 flex items-center gap-0.5"><Sparkles className="w-3 h-3 text-cyan-400" /> MP</span>
                               <span className="text-cyan-400 font-bold">{com.mp} / {com.maxMp}</span>
                             </div>
                             <div className="w-full h-1 bg-slate-950 rounded-full overflow-hidden">
@@ -4001,7 +3989,7 @@ export default function App() {
 
                           {/* Level progression bar */}
                           <div className="space-y-1 mb-3">
-                            <div className="flex justify-between text-[9px] font-mono text-slate-500 leading-none">
+                            <div className="flex justify-between text-[11px] font-mono text-slate-500 leading-none">
                               <span>EXP NEXT PHASE</span>
                               <span>{com.exp} / {com.maxExp}</span>
                             </div>
@@ -4014,18 +4002,18 @@ export default function App() {
                           </div>
 
                           {/* Gear details list or specific upgrades inside forge */}
-                          <div className="mt-3 p-2.5 bg-slate-950 rounded-lg border border-slate-900 space-y-2 text-[11px] font-mono">
+                          <div className="mt-3 p-2.5 bg-slate-950 rounded-lg border border-slate-900 space-y-2 text-[13px] font-mono">
                             <div className="flex items-center justify-between text-slate-400">
                               <span>🗡️ 武器: {com.equipment.weapon.name}</span>
-                              <span className="text-amber-400 text-[10px]">Lvl.{com.equipment.weapon.level} (+{com.equipment.weapon.bonus} ATK)</span>
+                              <span className="text-amber-400 text-[12px]">Lvl.{com.equipment.weapon.level} (+{com.equipment.weapon.bonus} ATK)</span>
                             </div>
 
                             <div className="flex items-center justify-between text-slate-400">
                               <span>🛡️ 防具: {com.equipment.armor.name}</span>
-                              <span className="text-amber-400 text-[10px]">Lvl.{com.equipment.armor.level} (+{com.equipment.armor.bonus} DEF)</span>
+                              <span className="text-amber-400 text-[12px]">Lvl.{com.equipment.armor.level} (+{com.equipment.armor.bonus} DEF)</span>
                             </div>
 
-                            <p className="border-t border-slate-900/60 pt-1.5 text-[10px] text-slate-500 leading-snug font-sans">
+                            <p className="border-t border-slate-900/60 pt-1.5 text-[12px] text-slate-500 leading-snug font-sans">
                               🔥 專屬奧義術: <span className="font-semibold text-cyan-400">「{com.activeSkill.name}」</span> ({com.activeSkill.multiplier}x) - {com.activeSkill.description}
                             </p>
                           </div>
@@ -4033,7 +4021,7 @@ export default function App() {
 
                         {/* Upgrade commands inside Forge Tab window */}
                         {activeTab === "blacksmith" && (
-                          <div className="mt-4 pt-3 border-t border-slate-850/60 grid grid-cols-2 gap-2 text-xs font-mono">
+                          <div className="mt-4 pt-3 border-t border-slate-800/60 grid grid-cols-2 gap-2 text-xs font-mono">
                             <button
                               onClick={() => upgradeGear(com.id, "weapon")}
                               disabled={gold < weaponCost}
@@ -4043,9 +4031,9 @@ export default function App() {
                                   : "bg-slate-950 border-slate-900 text-slate-600 cursor-not-allowed"
                               }`}
                             >
-                              <span className="font-semibold text-[11px]">🔨 強化武器</span>
-                              <span className="text-[9px] text-slate-500">Lvl.{com.equipment.weapon.level}➔{com.equipment.weapon.level + 1} ({weaponCost}金幣)</span>
-                              <span className={`text-[9px] font-bold ${weaponChancePct >= 70 ? "text-emerald-400" : weaponChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {weaponChancePct}%</span>
+                              <span className="font-semibold text-[13px]">🔨 強化武器</span>
+                              <span className="text-[11px] text-slate-500">Lvl.{com.equipment.weapon.level}➔{com.equipment.weapon.level + 1} ({weaponCost}金幣)</span>
+                              <span className={`text-[11px] font-bold ${weaponChancePct >= 70 ? "text-emerald-400" : weaponChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {weaponChancePct}%</span>
                             </button>
 
                             <button
@@ -4057,9 +4045,9 @@ export default function App() {
                                   : "bg-slate-950 border-slate-900 text-slate-600 cursor-not-allowed"
                               }`}
                             >
-                              <span className="font-semibold text-[11px]">🛡️ 強化護甲</span>
-                              <span className="text-[9px] text-slate-500">Lvl.{com.equipment.armor.level}➔{com.equipment.armor.level + 1} ({armorCost}金幣)</span>
-                              <span className={`text-[9px] font-bold ${armorChancePct >= 70 ? "text-emerald-400" : armorChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {armorChancePct}%</span>
+                              <span className="font-semibold text-[13px]">🛡️ 強化護甲</span>
+                              <span className="text-[11px] text-slate-500">Lvl.{com.equipment.armor.level}➔{com.equipment.armor.level + 1} ({armorCost}金幣)</span>
+                              <span className={`text-[11px] font-bold ${armorChancePct >= 70 ? "text-emerald-400" : armorChancePct >= 45 ? "text-amber-400" : "text-rose-400"}`}>成功率 {armorChancePct}%</span>
                             </button>
                           </div>
                         )}
@@ -4077,10 +4065,39 @@ export default function App() {
               </div>
 
             </div>
+            )}
 
           </div>
         )}
         </main>
+
+        {/* PERSISTENT TOWN LOG STRIP — pinned above the footer so it stays visible
+            across tabs/scroll in town mode (hidden during combat, which has its own log). */}
+        {!combat && (
+          <div className="shrink-0 border-t border-slate-800 bg-slate-950/95 backdrop-blur-sm px-3 pt-2 pb-2.5">
+            <p className="text-[12px] text-slate-500 font-mono mb-1.5 uppercase tracking-wide flex items-center gap-1">
+              <FileText className="w-3.5 h-3.5 text-slate-500" />
+              戰備指揮室探測反饋日誌 (Town Logs)
+            </p>
+            <div
+              ref={logConsoleRef}
+              className="overflow-y-auto space-y-1 h-[112px] text-[13px] font-mono leading-relaxed text-slate-400 pr-1 select-none"
+            >
+              {narrativeLogs.map((log) => {
+                let logStyle = "text-slate-400";
+                if (log.type === "system") logStyle = "text-cyan-400";
+                if (log.type === "player_action") logStyle = "text-[#628dd1]";
+                if (log.type === "victory") logStyle = "text-emerald-400 font-bold";
+                if (log.type === "gameover") logStyle = "text-rose-400";
+                return (
+                  <div key={log.id} className={`${logStyle} break-words`}>
+                    {log.text}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* BOTTOM AUTOMATICALLY SAVED TOAST & FOOTER STATUS */}
         <footer className="px-4 py-2.5 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-slate-500 shrink-0">
@@ -4114,7 +4131,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setIsResetConfirmOpen(false)}
-                  className="px-2 py-0.5 bg-slate-800 rounded text-slate-300 hover:bg-slate-755 cursor-pointer"
+                  className="px-2 py-0.5 bg-slate-800 rounded text-slate-300 hover:bg-slate-700 cursor-pointer"
                 >
                   否 (返回)
                 </button>
@@ -4148,7 +4165,7 @@ export default function App() {
 
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="space-y-1">
-                  <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest">{activeLoreDetail.codename} 頻道</span>
+                  <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-widest">{activeLoreDetail.codename} 頻道</span>
                   <h3 className="text-sm font-black text-slate-100 tracking-wide flex items-center gap-1.5">
                     🌌 {activeLoreDetail.title}
                   </h3>
@@ -4162,23 +4179,23 @@ export default function App() {
               </div>
 
               <div className="space-y-4 py-1 text-xs">
-                <div className="bg-slate-950/70 border border-slate-850 p-4 rounded-xl leading-relaxed text-slate-300 font-sans whitespace-pre-line relative">
-                  <span className="absolute -top-1.5 -left-1 text-[8px] bg-cyan-950 text-cyan-400 border border-cyan-800/20 px-1.5 rounded uppercase font-bold tracking-widest scale-90">
+                <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl leading-relaxed text-slate-300 font-sans whitespace-pre-line relative">
+                  <span className="absolute -top-1.5 -left-1 text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800/20 px-1.5 rounded uppercase font-bold tracking-widest scale-90">
                     星海黑匣子錄入
                   </span>
                   {activeLoreDetail.description}
                 </div>
 
                 <div className="bg-cyan-950/25 border border-cyan-500/20 p-3.5 rounded-xl space-y-1">
-                  <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider font-mono">
+                  <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider font-mono">
                     🚨 行星防衛與克制方案數據
                   </span>
-                  <p className="text-[11px] text-cyan-300/95 font-sans leading-relaxed">
+                  <p className="text-[13px] text-cyan-300/95 font-sans leading-relaxed">
                     {activeLoreDetail.secretReveal}
                   </p>
                 </div>
 
-                <div className="bg-slate-950 border border-slate-850 p-3 rounded-lg flex items-center justify-between font-mono text-[10px]">
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between font-mono text-[12px]">
                   <span className="text-slate-500">破譯獲取物資:</span>
                   <span className="text-amber-400 font-bold">{activeLoreDetail.rewardText}</span>
                 </div>
