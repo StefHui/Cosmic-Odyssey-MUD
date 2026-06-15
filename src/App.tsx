@@ -824,6 +824,16 @@ export default function App() {
       id: `partner_${Date.now()}_${Math.random()}`
     };
 
+    // Apply already-crafted squad-wide artifact passives so late recruits are not left behind
+    if (craftedArtifactIds.includes("artifact_gravity")) {
+      const boostedMaxHp = Math.round(newMember.maxHp * 1.15);
+      newMember.maxHp = boostedMaxHp;
+      newMember.hp = boostedMaxHp;
+    }
+    if (craftedArtifactIds.includes("artifact_booster")) {
+      newMember.atk = newMember.atk + Math.round(newMember.atk * 0.15);
+    }
+
     const nextParty = [...party, newMember];
     setParty(nextParty);
 
@@ -1343,12 +1353,22 @@ export default function App() {
     const relation = getElementRelation(monster.element, target.element);
     const dmgInflicted = Math.max(1, Math.round((monster.atk - target.def * 0.4) * relation.multiplier));
 
-    const nextHp = Math.max(0, target.hp - dmgInflicted);
-    const targetFell = nextHp <= 0;
+    const rawNextHp = Math.max(0, target.hp - dmgInflicted);
+    let targetFell = rawNextHp <= 0;
+    let finalHp = rawNextHp;
+
+    // 🔘 Phoenix Lens passive: 15% chance to auto-revive a fallen ally at 25% HP
+    let phoenixRevivedHp = 0;
+    const hasPhoenixLens = craftedArtifactIds.includes("artifact_phoenix_lens");
+    if (targetFell && hasPhoenixLens && Math.random() < 0.15) {
+      phoenixRevivedHp = Math.max(1, Math.round(target.maxHp * 0.25));
+      finalHp = phoenixRevivedHp;
+      targetFell = false;
+    }
 
     const nextParty = party.map((m, idx) => {
       if (idx === targetIdx) {
-        return { ...m, hp: nextHp, isDead: targetFell };
+        return { ...m, hp: finalHp, isDead: targetFell };
       }
       return m;
     });
@@ -1358,7 +1378,9 @@ export default function App() {
     const monsterText = `👾 【${monster.name} (${getElementEmoji(monster.element)})】展開反撲狂抓！${relation.text}，對我方【${target.name}】砸出 ${dmgInflicted} 點震盪傷害！ ${strikeSymbol}`;
     addLog(monsterText, relation.type === "critical" ? "critical" : "monster_action");
 
-    if (targetFell) {
+    if (phoenixRevivedHp > 0) {
+      addLog(`🔘 「量子複活偏振透鏡」逆時程式啟動！偵測到【${target.name}】死機瞬間觸發極限重啟，以 ${phoenixRevivedHp} HP (25%) 強制復甦！`, "victory");
+    } else if (targetFell) {
       addLog(`💀 戰報警告：我方戰友【${target.name}】能量艙載荷崩塌，身受重傷強制斷線離線！`, "gameover");
     }
 
@@ -2128,6 +2150,7 @@ export default function App() {
                 </div>
 
               </div>
+            </div>
 
             {/* Right side: Combat Logs & party status */}
             <div className="w-full md:w-[360px] p-3 sm:p-4 flex flex-col justify-between shrink-0 h-[220px] md:h-full bg-slate-950 relative overflow-y-auto min-h-0">
