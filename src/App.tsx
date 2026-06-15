@@ -297,6 +297,11 @@ export default function App() {
 
   const logConsoleRef = useRef<HTMLDivElement>(null);
 
+  // Monotonic counter for animation overlay ids. Keeps Date.now() as the LAST segment
+  // (recency detection parses it) while guaranteeing uniqueness within the same millisecond.
+  const animSeqRef = useRef(0);
+  const nextAnimId = (prefix: string) => `${prefix}_${animSeqRef.current++}_${Date.now()}`;
+
   // --- Loading Saved Data from localStorage ---
   useEffect(() => {
     try {
@@ -1458,7 +1463,7 @@ export default function App() {
 
         // Flash heal numbers on colleagues
         const anims = healedParty.map((m, idx) => ({
-          id: `heal_anim_${idx}_${Date.now()}`,
+          id: nextAnimId(`heal_anim_${idx}`),
           text: `+${healValue} HP 💧`,
           isMonsterTarget: false,
           targetIndex: idx,
@@ -1555,7 +1560,7 @@ export default function App() {
 
       // Add overlay number animation on the targeted ally card
       const itemAnim = {
-        id: `item_anim_${Date.now()}`,
+        id: nextAnimId("item_anim"),
         text: animText || targetItem.name,
         isMonsterTarget: false,
         targetIndex: activePartyTurnIndex,
@@ -1591,7 +1596,7 @@ export default function App() {
 
     // Spawn damage number overlay on monster
     const dmgAnim = {
-      id: `dmg_anim_m_${Date.now()}`,
+      id: nextAnimId("dmg_anim_m"),
       text: `${dmg} ${animType === "critical" ? "💥" : animType === "guarded" ? "🛡️" : ""}`,
       isMonsterTarget: true,
       type: animType
@@ -1715,7 +1720,7 @@ export default function App() {
 
     // Add overlay damage text to ally card
     const allyDmgOverlay = {
-      id: `dmg_anim_a_${Date.now()}`,
+      id: nextAnimId("dmg_anim_a"),
       text: `-${dmgInflicted} ${relation.symbol}`,
       isMonsterTarget: false,
       targetIndex: targetIdx,
