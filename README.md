@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🌌 Cosmic Odyssey MUD
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/4533c48e-e341-4da6-bb98-a4a4f6539ebb
+A retro cosmic JRPG / MUD that runs entirely in the browser — element-affinity
+combat, party recruitment, loot & forging, a trading post, and a chapter-gated
+main quest line. Built with React + Vite + Tailwind.
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Start the dev server:
    `npm run dev`
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | Type-check with `tsc --noEmit` |
+| `npm test` | Run the core game-engine test suite |
+
+## Deploy
+
+Pushing to `main` builds and publishes to GitHub Pages automatically via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
