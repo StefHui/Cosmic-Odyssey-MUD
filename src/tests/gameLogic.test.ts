@@ -3,15 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getElementRelation } from "../data";
+import { getElementRelation, applyExpGain, HERO_INITIAL } from "../data";
 
 /**
  * 🌠 Cosmic JRPG / MUD - Core Game Engine Test Suite
- * This script serves as a modular unit testing suite using basic assertions to verify 
+ * This script serves as a modular unit testing suite using basic assertions to verify
  * critical game mechanics (Elemental relations, damage formulae, and level-up curves).
+ *
+ * Returns the pass/fail tally so a CLI runner (npm test) can set its exit code.
  */
 
-export function runCoreGameTests() {
+export function runCoreGameTests(): { passed: number; failed: number } {
   console.log("============= 🧪 STARTING COSMIC ODYSSEY CORE TESTS =============");
   let passed = 0;
   let failed = 0;
@@ -100,18 +102,26 @@ export function runCoreGameTests() {
   try {
     console.log("\n--- Category 3: Level Up Experience Thresholds (升級經驗閾值) ---");
 
-    // Game stats curve progression rule: nextMaxExp = Math.round(currentMaxExp * 1.5)
-    const lv1MaxExp = 100;
-    const lv2MaxExpExpected = Math.round(lv1MaxExp * 1.5); // 150
-    const lv3MaxExpExpected = Math.round(lv2MaxExpExpected * 1.5); // 225
+    // Drive the real engine function so the curve rule (nextMaxExp = round(maxExp * 1.5))
+    // is verified against shipping code, not a re-derived constant.
+    const lv1 = { ...HERO_INITIAL, lv: 1, exp: 0, maxExp: 100 };
 
+    // Exactly enough exp to ding once: maxExp stretches 100 -> 150, level 1 -> 2.
+    const oneLevel = applyExpGain(lv1, 100);
     assert(
-      lv2MaxExpExpected === 150,
-      `LV.1 升至 LV.2 的所需經驗上限應膨脹至 150`
+      oneLevel.leveledUp && oneLevel.member.lv === 2 && oneLevel.member.maxExp === 150,
+      `LV.1 灌注 100 經驗應升至 LV.2，下一級經驗上限膨脹至 150`
     );
     assert(
-      lv3MaxExpExpected === 225,
-      `LV.2 升至 LV.3 的所需經驗上限應膨脹至 225`
+      oneLevel.member.hp === oneLevel.member.maxHp,
+      `升級時應觸發全滿補血（hp === maxHp）`
+    );
+
+    // Enough to ding twice in one gain: 100 (->lv2) + 150 (->lv3), maxExp 150 -> 225.
+    const twoLevels = applyExpGain(lv1, 250);
+    assert(
+      twoLevels.member.lv === 3 && twoLevels.member.maxExp === 225,
+      `LV.1 一次灌注 250 經驗應連升兩級至 LV.3，經驗上限累進至 225`
     );
 
   } catch (e: any) {
@@ -129,4 +139,6 @@ export function runCoreGameTests() {
   } else {
     console.warn("⚠️ SOME UNIT CHECKS FAILED. PLEASE VERIFY EQUATIONS AND BOUNDS.");
   }
+
+  return { passed, failed };
 }
