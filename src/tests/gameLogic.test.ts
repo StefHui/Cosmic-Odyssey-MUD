@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getElementRelation, applyExpGain, HERO_INITIAL } from "../data";
+import { getElementRelation, applyExpGain, HERO_INITIAL, LEVEL_EXP_GROWTH } from "../data";
 
 /**
  * 🌠 Cosmic JRPG / MUD - Core Game Engine Test Suite
@@ -102,26 +102,28 @@ export function runCoreGameTests(): { passed: number; failed: number } {
   try {
     console.log("\n--- Category 3: Level Up Experience Thresholds (升級經驗閾值) ---");
 
-    // Drive the real engine function so the curve rule (nextMaxExp = round(maxExp * 1.5))
+    // Drive the real engine function so the curve rule lives in one shipping constant.
     // is verified against shipping code, not a re-derived constant.
     const lv1 = { ...HERO_INITIAL, lv: 1, exp: 0, maxExp: 100 };
+    const lv2MaxExp = Math.round(100 * LEVEL_EXP_GROWTH);
+    const lv3MaxExp = Math.round(lv2MaxExp * LEVEL_EXP_GROWTH);
 
-    // Exactly enough exp to ding once: maxExp stretches 100 -> 150, level 1 -> 2.
+    // Exactly enough exp to ding once: maxExp stretches 100 -> 175, level 1 -> 2.
     const oneLevel = applyExpGain(lv1, 100);
     assert(
-      oneLevel.leveledUp && oneLevel.member.lv === 2 && oneLevel.member.maxExp === 150,
-      `LV.1 灌注 100 經驗應升至 LV.2，下一級經驗上限膨脹至 150`
+      oneLevel.leveledUp && oneLevel.member.lv === 2 && oneLevel.member.maxExp === lv2MaxExp,
+      `LV.1 灌注 100 經驗應升至 LV.2，下一級經驗上限膨脹至 ${lv2MaxExp}`
     );
     assert(
       oneLevel.member.hp === oneLevel.member.maxHp,
       `升級時應觸發全滿補血（hp === maxHp）`
     );
 
-    // Enough to ding twice in one gain: 100 (->lv2) + 150 (->lv3), maxExp 150 -> 225.
-    const twoLevels = applyExpGain(lv1, 250);
+    // Enough to ding twice in one gain: 100 (->lv2) + 175 (->lv3), maxExp 175 -> 306.
+    const twoLevels = applyExpGain(lv1, 100 + lv2MaxExp);
     assert(
-      twoLevels.member.lv === 3 && twoLevels.member.maxExp === 225,
-      `LV.1 一次灌注 250 經驗應連升兩級至 LV.3，經驗上限累進至 225`
+      twoLevels.member.lv === 3 && twoLevels.member.maxExp === lv3MaxExp,
+      `LV.1 一次灌注 ${100 + lv2MaxExp} 經驗應連升兩級至 LV.3，經驗上限累進至 ${lv3MaxExp}`
     );
 
   } catch (e: any) {

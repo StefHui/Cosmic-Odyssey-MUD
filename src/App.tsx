@@ -77,6 +77,7 @@ import {
   TIME_ORDER,
   getTimeOfDayLabel,
   applyExpGain,
+  BATTLE_EXP_RATE,
   GEAR_TEMPLATES,
   GEAR_RARITY_LABEL,
   GEAR_RARITY_COLOR,
@@ -222,6 +223,8 @@ export default function App() {
   const [hasSave, setHasSave] = useState<boolean>(false);
   const [isNewGameConfirmOpen, setIsNewGameConfirmOpen] = useState<boolean>(false);
   const [isManualOpen, setIsManualOpen] = useState<boolean>(false);
+  // Combat consumables tray: collapsed to one row, pops a floating box on demand.
+  const [isCombatBagOpen, setIsCombatBagOpen] = useState<boolean>(false);
   // Save export/import: feedback banner on the start screen + hidden file picker.
   const [transferStatus, setTransferStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -343,7 +346,7 @@ export default function App() {
     if (parsed.decryptedLogIds) {
       setDecryptedLogIds(parsed.decryptedLogIds);
     }
-    if (parsed.gearInventory) {
+    if (Array.isArray(parsed.gearInventory)) {
       setGearInventory(parsed.gearInventory);
     }
     if (parsed.forgePity) {
@@ -684,18 +687,29 @@ export default function App() {
       const nextForgePity = { ...forgePity, [slotKey]: (forgePity[slotKey] || 0) + 0.15 };
       setForgePity(nextForgePity);
       addLog(`💥 強化失敗！(成功率 ${chancePct}%) 裝備等級不變，但鍛造幸運值提升 (下次成功率 +15%)。已消耗 ${goldCost} 金幣。`, "system");
-      triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextForgePity);
+      triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, undefined, nextForgePity);
       return;
     }
 
     // Success: apply +1 level & stat bonus, reset pity
+    const equippedGearUid = member.equipment[type].gearUid;
+    const nextGearInventory = equippedGearUid
+      ? gearInventory.map((g) => {
+          if (g.uid !== equippedGearUid) return g;
+          return type === "weapon"
+            ? { ...g, level: g.level + 1, atkBonus: g.atkBonus + 5 }
+            : { ...g, level: g.level + 1, defBonus: g.defBonus + 3, hpBonus: g.hpBonus + 15 };
+        })
+      : gearInventory;
+
     const nextParty = party.map((m) => {
       if (m.id === charId) {
         if (type === "weapon") {
           const nextWType = {
             ...m.equipment.weapon,
             level: currentLevel + 1,
-            bonus: m.equipment.weapon.bonus + 5
+            bonus: m.equipment.weapon.bonus + 5,
+            appliedAtk: m.equipment.weapon.appliedAtk !== undefined ? m.equipment.weapon.appliedAtk + 5 : undefined
           };
           addLog(`🔨 鐵匠敲打聲響起！(成功率 ${chancePct}%) 【${m.name}】的武器「${nextWType.name}」已強化至 Lv.${nextWType.level}！(攻擊力 +5)`, "player_action");
           return {
@@ -707,7 +721,9 @@ export default function App() {
           const nextAType = {
             ...m.equipment.armor,
             level: currentLevel + 1,
-            bonus: m.equipment.armor.bonus + 4
+            bonus: m.equipment.armor.bonus + 3,
+            appliedDef: m.equipment.armor.appliedDef !== undefined ? m.equipment.armor.appliedDef + 3 : undefined,
+            appliedHp: m.equipment.armor.appliedHp !== undefined ? m.equipment.armor.appliedHp + 15 : undefined
           };
           addLog(`🔨 火花四濺！(成功率 ${chancePct}%) 【${m.name}】的防具「${nextAType.name}」已強化至 Lv.${nextAType.level}！(防禦力 +3，最大生命 +15)`, "player_action");
           return {
@@ -723,6 +739,7 @@ export default function App() {
     });
 
     setParty(nextParty);
+    if (nextGearInventory !== gearInventory) setGearInventory(nextGearInventory);
 
     // Reset pity for this slot on success
     const nextForgePity = { ...forgePity, [slotKey]: 0 };
@@ -737,7 +754,7 @@ export default function App() {
     // Progress Upgrade quest — count SUCCESSES only ("強化 5 次" intent)
     const nextQuests = checkQuestMilestone("upgrade", 1, quests);
 
-    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats, undefined, undefined, undefined, undefined, undefined, undefined, nextForgePity);
+    triggerAutosave(nextGold, nextParty, nextQuests, items, activeZoneId, nextStats, undefined, undefined, undefined, undefined, undefined, undefined, nextGearInventory, nextForgePity);
   };
 
   // 🌟 [Feature 1] Awaken Character (職業晉階 / 轉職覺醒)
@@ -1070,9 +1087,11 @@ export default function App() {
       return;
     }
 
-    const deltaAtk = gear.atkBonus - (current.appliedAtk || 0);
-    const deltaDef = gear.defBonus - (current.appliedDef || 0);
-    const deltaHp = gear.hpBonus - (current.appliedHp || 0);
+    const emptySlot: Equipment = {
+      name: slot === "weapon" ? "未裝備武器" : "未裝備防具",
+      level: 1,
+      bonus: 0
+    };
 
     const newEq: Equipment = {
       name: gear.name,
@@ -1087,8 +1106,31 @@ export default function App() {
     };
 
     const nextParty = party.map((m) => {
+      const currentSlot = m.equipment[slot];
+
+      if (currentSlot.gearUid === gearUid && m.id !== charId) {
+        const removeAtk = -(currentSlot.appliedAtk || 0);
+        const removeDef = -(currentSlot.appliedDef || 0);
+        const removeHp = -(currentSlot.appliedHp || 0);
+        const newMaxHp = Math.max(1, m.maxHp + removeHp);
+        const newEquipment: EquipmentSet =
+          slot === "weapon" ? { ...m.equipment, weapon: emptySlot } : { ...m.equipment, armor: emptySlot };
+        return {
+          ...m,
+          atk: m.atk + removeAtk,
+          def: m.def + removeDef,
+          maxHp: newMaxHp,
+          hp: Math.max(1, Math.min(newMaxHp, m.hp)),
+          equipment: newEquipment
+        };
+      }
+
       if (m.id !== charId) return m;
-      const newMaxHp = m.maxHp + deltaHp;
+
+      const deltaAtk = gear.atkBonus - (currentSlot.appliedAtk || 0);
+      const deltaDef = gear.defBonus - (currentSlot.appliedDef || 0);
+      const deltaHp = gear.hpBonus - (currentSlot.appliedHp || 0);
+      const newMaxHp = Math.max(1, m.maxHp + deltaHp);
       const newEquipment: EquipmentSet =
         slot === "weapon" ? { ...m.equipment, weapon: newEq } : { ...m.equipment, armor: newEq };
       return {
@@ -1104,7 +1146,7 @@ export default function App() {
 
     const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
     addLog(
-      `🛡️ 裝備更換：【${member.name}】裝上了【${GEAR_RARITY_LABEL[gear.rarity]}】${gear.name}！(⚔️${fmt(deltaAtk)} 🛡️${fmt(deltaDef)} ❤️${fmt(deltaHp)})`,
+      `🛡️ 裝備更換：【${member.name}】裝上了【${GEAR_RARITY_LABEL[gear.rarity]}】${gear.name}！(⚔️${fmt(gear.atkBonus - (current.appliedAtk || 0))} 🛡️${fmt(gear.defBonus - (current.appliedDef || 0))} ❤️${fmt(gear.hpBonus - (current.appliedHp || 0))})`,
       "player_action"
     );
     triggerAutosave(gold, nextParty, quests, items, activeZoneId, statistics);
@@ -1192,7 +1234,8 @@ export default function App() {
       if (g) {
         const nextGearInventory = [...gearInventory, g];
         setGearInventory(nextGearInventory);
-        addLog(`🛒 交易所購入裝備【${GEAR_RARITY_LABEL[g.rarity]}】${g.name}（⚔️+${g.atkBonus} 🛡️+${g.defBonus} ❤️+${g.hpBonus}）！`, "player_action");
+        setSmithySubTab("gear");
+        addLog(`🛒 交易所購入裝備【${GEAR_RARITY_LABEL[g.rarity]}】${g.name}（⚔️+${g.atkBonus} 🛡️+${g.defBonus} ❤️+${g.hpBonus}）！可在本頁下方或鍛造商店 > 裝備庫直接換裝。`, "player_action");
         triggerAutosave(nextGold, party, quests, items, activeZoneId, statistics, undefined, undefined, undefined, undefined, undefined, undefined, nextGearInventory);
       }
     } else {
@@ -1831,7 +1874,8 @@ export default function App() {
     const isNight = currentTimeOfDay === "night";
 
     // 🌙 Night: exp ×1.2.  ☀️🌤️ otherwise baseline.
-    const rewardExp = isNight ? Math.round(monster.rewardExp * 1.2) : monster.rewardExp;
+    const baseRewardExp = isNight ? Math.round(monster.rewardExp * 1.2) : monster.rewardExp;
+    const rewardExp = Math.max(1, Math.round(baseRewardExp * BATTLE_EXP_RATE));
 
     // Apply Gold Attractor passive blessing, then time-of-day gold modifiers
     const hasGoldAttractor = craftedArtifactIds.includes("artifact_attractor");
@@ -2559,36 +2603,60 @@ export default function App() {
                             </span>
                           </button>
 
-                          {/* Inventory Consumables quick tray inside combat */}
-                          <div className="col-span-2 mt-0.5">
-                            <p className="text-[11px] text-slate-500 mb-0.5 font-mono uppercase tracking-wider">戰備應急背包藥水 (Consumables)</p>
-                            <div className="grid grid-cols-3 gap-1.5">
-                              {items.map((it) => {
-                                const hasQuantity = it.count > 0;
-                                return (
-                                  <button
-                                    key={it.id}
-                                    onClick={() => executeAllyAction("item", it.id)}
-                                    disabled={!hasQuantity}
-                                    className={`py-1 px-2 rounded-lg border text-left flex items-center gap-1 justify-between transition-all ${
-                                      hasQuantity
-                                        ? "bg-slate-950 border-slate-800 text-slate-200 hover:bg-slate-800 hover:border-slate-700 cursor-pointer"
-                                        : "bg-slate-950/40 border-slate-900/60 text-slate-600 cursor-not-allowed"
-                                    }`}
-                                  >
-                                    <span className="truncate flex items-center gap-1 text-[12px]">
-                                      <span>{it.emoji}</span>
-                                      <span className="truncate">{it.name.substring(4)}</span>
-                                    </span>
-                                    <span className={`px-1 rounded font-bold text-[11px] shrink-0 ${
-                                      hasQuantity ? "bg-cyan-950 text-cyan-400 border border-cyan-900" : "bg-slate-900 text-slate-500"
-                                    }`}>
-                                      x{it.count}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                          {/* Inventory Consumables — collapsed to one row; opens a floating tray
+                              on demand so it never pushes the battle log out of view. */}
+                          <div className="col-span-2 mt-0.5 relative">
+                            <button
+                              type="button"
+                              onClick={() => setIsCombatBagOpen((o) => !o)}
+                              className="w-full py-1.5 px-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-800 hover:border-slate-700 flex items-center justify-between gap-1 cursor-pointer transition-all font-mono"
+                            >
+                              <span className="flex items-center gap-1.5 text-[12px]">
+                                <span>🎒</span>
+                                <span>戰備應急背包藥水 (Consumables)</span>
+                              </span>
+                              <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                <span className="px-1 rounded bg-slate-900 border border-slate-800">{items.reduce((s, i) => s + i.count, 0)} 件</span>
+                                <span className={`transition-transform ${isCombatBagOpen ? "rotate-180" : ""}`}>▾</span>
+                              </span>
+                            </button>
+
+                            {isCombatBagOpen && (
+                              <>
+                                {/* click-away backdrop */}
+                                <div className="fixed inset-0 z-20" onClick={() => setIsCombatBagOpen(false)} />
+                                <div className="absolute z-30 bottom-full mb-1.5 left-0 right-0 bg-slate-900 border border-slate-700 rounded-lg p-2 shadow-2xl shadow-black/70">
+                                  <p className="text-[11px] text-slate-500 mb-1 px-0.5 font-mono uppercase tracking-wider">選擇道具使用 (Use Item)</p>
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    {items.map((it) => {
+                                      const hasQuantity = it.count > 0;
+                                      return (
+                                        <button
+                                          key={it.id}
+                                          onClick={() => { executeAllyAction("item", it.id); setIsCombatBagOpen(false); }}
+                                          disabled={!hasQuantity}
+                                          className={`py-1 px-2 rounded-lg border text-left flex items-center gap-1 justify-between transition-all ${
+                                            hasQuantity
+                                              ? "bg-slate-950 border-slate-800 text-slate-200 hover:bg-slate-800 hover:border-slate-700 cursor-pointer"
+                                              : "bg-slate-950/40 border-slate-900/60 text-slate-600 cursor-not-allowed"
+                                          }`}
+                                        >
+                                          <span className="truncate flex items-center gap-1 text-[12px]">
+                                            <span>{it.emoji}</span>
+                                            <span className="truncate">{it.name.substring(4)}</span>
+                                          </span>
+                                          <span className={`px-1 rounded font-bold text-[11px] shrink-0 ${
+                                            hasQuantity ? "bg-cyan-950 text-cyan-400 border border-cyan-900" : "bg-slate-900 text-slate-500"
+                                          }`}>
+                                            x{it.count}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
 
                         </div>
@@ -3139,27 +3207,55 @@ export default function App() {
                       })}
                     </div>
 
-                    {/* Gear sell */}
+                    {/* Gear sell / quick equip */}
                     <div className="space-y-1.5">
-                      <div className="text-[13px] font-bold text-slate-300 uppercase pt-1">🛡️ 出售掉落裝備</div>
+                      <div className="text-[13px] font-bold text-slate-300 uppercase pt-1">🛡️ 裝備庫：換裝 / 出售</div>
                       {gearInventory.length === 0 ? (
                         <div className="text-[12px] text-slate-500">裝備庫是空的，去狩獵掉落裝備吧！</div>
                       ) : (
                         gearInventory.map((g) => {
                           const equipped = party.some((m) => m.equipment[g.slot].gearUid === g.uid);
+                          const equippedBy = party.find((m) => m.equipment[g.slot].gearUid === g.uid);
                           return (
-                            <div key={g.uid} className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 border ${GEAR_RARITY_COLOR[g.rarity]}`}>
-                              <span className="text-[13px] flex items-center gap-1">
-                                {g.slot === "weapon" ? "⚔️" : "🛡️"} {g.name}
-                                <span className="text-[11px] opacity-70">[{GEAR_RARITY_LABEL[g.rarity]}]</span>
-                              </span>
-                              <button
-                                onClick={() => sellGear(g.uid)}
-                                disabled={equipped}
-                                className={`text-[12px] px-2 py-1 rounded border font-bold ${equipped ? "bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
-                              >
-                                {equipped ? "裝備中" : `賣 ${gearSellValue(g)} ✨`}
-                              </button>
+                            <div key={g.uid} className={`rounded-lg px-2.5 py-2 border space-y-1.5 ${GEAR_RARITY_COLOR[g.rarity]}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[13px] flex items-center gap-1 min-w-0">
+                                  {g.slot === "weapon" ? "⚔️" : "🛡️"} <span className="truncate">{g.name}</span>
+                                  <span className="text-[11px] opacity-70 shrink-0">[{GEAR_RARITY_LABEL[g.rarity]}]</span>
+                                </span>
+                                <button
+                                  onClick={() => sellGear(g.uid)}
+                                  disabled={equipped}
+                                  className={`text-[12px] px-2 py-1 rounded border font-bold shrink-0 ${equipped ? "bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed" : "bg-rose-700 border-rose-800 hover:bg-rose-600 text-white cursor-pointer"}`}
+                                >
+                                  {equipped ? `裝備中${equippedBy ? `：${equippedBy.name.split(" ")[0]}` : ""}` : `賣 ${gearSellValue(g)} ✨`}
+                                </button>
+                              </div>
+                              <div className="text-[12px] text-slate-300 font-mono">
+                                {g.atkBonus > 0 && <span className="mr-2">⚔️+{g.atkBonus}</span>}
+                                {g.defBonus > 0 && <span className="mr-2">🛡️+{g.defBonus}</span>}
+                                {g.hpBonus > 0 && <span className="mr-2">❤️+{g.hpBonus}</span>}
+                                {g.element && <span className="opacity-70">{getElementEmoji(g.element)}</span>}
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {party.map((m) => {
+                                  const isOn = m.equipment[g.slot].gearUid === g.uid;
+                                  return (
+                                    <button
+                                      key={m.id}
+                                      onClick={() => equipGear(m.id, g.uid)}
+                                      disabled={isOn}
+                                      className={`text-[12px] px-2 py-1 rounded border font-mono transition-all ${
+                                        isOn
+                                          ? "bg-emerald-900/40 border-emerald-700 text-emerald-300 cursor-not-allowed"
+                                          : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 cursor-pointer"
+                                      }`}
+                                    >
+                                      {isOn ? "✓ " : "裝備→"}{m.name.split(" ")[0]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
                           );
                         })

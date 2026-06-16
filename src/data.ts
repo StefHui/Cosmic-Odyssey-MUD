@@ -2,6 +2,8 @@ import { Character, MonsterTemplate, Zone, Quest, Item, ElementType, Material, A
 
 // --- Day / Time-of-Day ordering & UI labels (早午晚) ---
 export const TIME_ORDER: TimeOfDay[] = ["morning", "noon", "night"];
+export const LEVEL_EXP_GROWTH = 1.75;
+export const BATTLE_EXP_RATE = 0.75;
 
 export function getTimeOfDayLabel(t: TimeOfDay): string {
   switch (t) {
@@ -31,7 +33,7 @@ export function applyExpGain(
   while (currentExp >= nextMaxExp) {
     currentExp -= nextMaxExp;
     nextLv += 1;
-    nextMaxExp = Math.round(nextMaxExp * 1.5);
+    nextMaxExp = Math.round(nextMaxExp * LEVEL_EXP_GROWTH);
     nextMaxHp = Math.round(nextMaxHp * 1.15) + 15;
     nextMaxMp = Math.round(nextMaxMp * 1.15) + 8;
     nextAtk = nextAtk + 4;
@@ -223,15 +225,31 @@ export const GEAR_RARITY_COLOR: Record<GearRarity, string> = {
 
 export const GEAR_TEMPLATES: Record<string, GearTemplate> = {
   // Weapons
+  gear_stardust_dagger: { id: "gear_stardust_dagger", name: "星屑穿梭短劍", slot: "weapon", rarity: "common", atkBonusRange: [4, 9] },
   gear_plasma_blade: { id: "gear_plasma_blade", name: "等離子振盪刃", slot: "weapon", rarity: "common", atkBonusRange: [6, 12] },
+  gear_pulse_hatchet: { id: "gear_pulse_hatchet", name: "脈衝破艙手斧", slot: "weapon", rarity: "common", atkBonusRange: [8, 14] },
   gear_ion_lance: { id: "gear_ion_lance", name: "離子穿透長矛", slot: "weapon", rarity: "rare", element: "Electric", atkBonusRange: [16, 26] },
+  gear_frost_saber: { id: "gear_frost_saber", name: "重水霜晶彎刀", slot: "weapon", rarity: "rare", element: "Water", atkBonusRange: [18, 30] },
+  gear_bio_vine_bow: { id: "gear_bio_vine_bow", name: "生體軌藤長弓", slot: "weapon", rarity: "rare", element: "Plant", atkBonusRange: [14, 24] },
   gear_nova_cannon: { id: "gear_nova_cannon", name: "新星熔核砲", slot: "weapon", rarity: "epic", element: "Fire", atkBonusRange: [30, 48] },
+  gear_gravity_halberd: { id: "gear_gravity_halberd", name: "重力破甲戟", slot: "weapon", rarity: "epic", element: "Earth", atkBonusRange: [32, 50] },
+  gear_storm_dualblade: { id: "gear_storm_dualblade", name: "雷暴雙相刃", slot: "weapon", rarity: "epic", element: "Electric", atkBonusRange: [28, 44] },
   gear_singularity_edge: { id: "gear_singularity_edge", name: "奇點崩裂之刃", slot: "weapon", rarity: "legendary", element: "Earth", atkBonusRange: [55, 80] },
+  gear_solar_regalia_spear: { id: "gear_solar_regalia_spear", name: "太陽王日冕光矛", slot: "weapon", rarity: "legendary", element: "Fire", atkBonusRange: [62, 88] },
+  gear_abyss_tide_scepter: { id: "gear_abyss_tide_scepter", name: "虛海潮汐權杖", slot: "weapon", rarity: "legendary", element: "Water", atkBonusRange: [52, 76] },
   // Armor
+  gear_starport_vest: { id: "gear_starport_vest", name: "星港纖維護衣", slot: "armor", rarity: "common", defBonusRange: [3, 7], hpBonusRange: [25, 55] },
   gear_alloy_plate: { id: "gear_alloy_plate", name: "合金複合護板", slot: "armor", rarity: "common", defBonusRange: [4, 9], hpBonusRange: [20, 45] },
+  gear_magnet_exosuit: { id: "gear_magnet_exosuit", name: "磁扣輕型外骨骼", slot: "armor", rarity: "common", defBonusRange: [6, 11], hpBonusRange: [40, 70] },
   gear_aegis_weave: { id: "gear_aegis_weave", name: "神盾編織護甲", slot: "armor", rarity: "rare", element: "Water", defBonusRange: [10, 18], hpBonusRange: [60, 110] },
+  gear_frost_barrier: { id: "gear_frost_barrier", name: "霜晶屏障戰衣", slot: "armor", rarity: "rare", element: "Water", defBonusRange: [12, 20], hpBonusRange: [75, 125] },
+  gear_thunder_cloak: { id: "gear_thunder_cloak", name: "雷網偏折披肩", slot: "armor", rarity: "rare", element: "Electric", defBonusRange: [9, 16], hpBonusRange: [55, 100] },
   gear_void_carapace: { id: "gear_void_carapace", name: "虛空甲殼裝甲", slot: "armor", rarity: "epic", element: "Plant", defBonusRange: [20, 32], hpBonusRange: [140, 230] },
-  gear_titan_bulwark: { id: "gear_titan_bulwark", name: "泰坦壁壘聖殼", slot: "armor", rarity: "legendary", element: "Earth", defBonusRange: [38, 58], hpBonusRange: [320, 480] }
+  gear_molten_reactor: { id: "gear_molten_reactor", name: "熔核反應戰裝", slot: "armor", rarity: "epic", element: "Fire", defBonusRange: [22, 34], hpBonusRange: [150, 250] },
+  gear_regrowth_mesh: { id: "gear_regrowth_mesh", name: "藤網再生甲", slot: "armor", rarity: "epic", element: "Plant", defBonusRange: [18, 30], hpBonusRange: [180, 300] },
+  gear_titan_bulwark: { id: "gear_titan_bulwark", name: "泰坦壁壘聖殼", slot: "armor", rarity: "legendary", element: "Earth", defBonusRange: [38, 58], hpBonusRange: [320, 480] },
+  gear_stellar_tomb_plate: { id: "gear_stellar_tomb_plate", name: "星墓王鎧", slot: "armor", rarity: "legendary", element: "Earth", defBonusRange: [42, 64], hpBonusRange: [380, 540] },
+  gear_voidsea_raiment: { id: "gear_voidsea_raiment", name: "虛海聖衣", slot: "armor", rarity: "legendary", element: "Water", defBonusRange: [35, 52], hpBonusRange: [420, 620] }
 };
 
 function randInt(min: number, max: number): number {
@@ -446,6 +464,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "stardust_shard", chance: 0.55, min: 1, max: 2 },
       { kind: "item", id: "potion_hp", chance: 0.15, min: 1, max: 1 },
+      { kind: "gear", id: "gear_stardust_dagger", chance: 0.08, min: 1, max: 1 },
       { kind: "gear", id: "gear_plasma_blade", chance: 0.05, min: 1, max: 1 }
     ]
   },
@@ -458,6 +477,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "stardust_shard", chance: 0.55, min: 1, max: 2 },
       { kind: "item", id: "potion_mp", chance: 0.15, min: 1, max: 1 },
+      { kind: "gear", id: "gear_starport_vest", chance: 0.08, min: 1, max: 1 },
       { kind: "gear", id: "gear_alloy_plate", chance: 0.06, min: 1, max: 1 }
     ]
   },
@@ -471,6 +491,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "stardust_shard", chance: 0.6, min: 1, max: 3 },
       { kind: "item", id: "potion_hp", chance: 0.3, min: 1, max: 2 },
       { kind: "gear", id: "gear_plasma_blade", chance: 0.14, min: 1, max: 1 },
+      { kind: "gear", id: "gear_pulse_hatchet", chance: 0.1, min: 1, max: 1 },
       { kind: "gear", id: "gear_alloy_plate", chance: 0.1, min: 1, max: 1 }
     ]
   },
@@ -483,6 +504,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "stardust_shard", chance: 0.7, min: 2, max: 3 },
       { kind: "item", id: "tonic_atk", chance: 0.2, min: 1, max: 1 },
+      { kind: "gear", id: "gear_bio_vine_bow", chance: 0.12, min: 1, max: 1 },
       { kind: "gear", id: "gear_ion_lance", chance: 0.12, min: 1, max: 1 }
     ]
   },
@@ -498,6 +520,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "heavy_water_crystal", chance: 0.5, min: 1, max: 2 },
       { kind: "material", id: "stardust_shard", chance: 0.25, min: 1, max: 1 },
       { kind: "item", id: "potion_mp", chance: 0.15, min: 1, max: 1 },
+      { kind: "gear", id: "gear_magnet_exosuit", chance: 0.07, min: 1, max: 1 },
       { kind: "gear", id: "gear_alloy_plate", chance: 0.06, min: 1, max: 1 }
     ]
   },
@@ -510,6 +533,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "heavy_water_crystal", chance: 0.55, min: 1, max: 2 },
       { kind: "item", id: "potion_hp_large", chance: 0.12, min: 1, max: 1 },
+      { kind: "gear", id: "gear_frost_saber", chance: 0.08, min: 1, max: 1 },
       { kind: "gear", id: "gear_aegis_weave", chance: 0.06, min: 1, max: 1 }
     ]
   },
@@ -522,6 +546,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "heavy_water_crystal", chance: 0.65, min: 1, max: 3 },
       { kind: "item", id: "potion_mp_large", chance: 0.2, min: 1, max: 1 },
+      { kind: "gear", id: "gear_frost_barrier", chance: 0.12, min: 1, max: 1 },
       { kind: "gear", id: "gear_aegis_weave", chance: 0.14, min: 1, max: 1 }
     ]
   },
@@ -534,6 +559,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "heavy_water_crystal", chance: 0.75, min: 2, max: 3 },
       { kind: "item", id: "elixir_full", chance: 0.08, min: 1, max: 1 },
+      { kind: "gear", id: "gear_frost_saber", chance: 0.16, min: 1, max: 1 },
       { kind: "gear", id: "gear_aegis_weave", chance: 0.16, min: 1, max: 1 }
     ]
   },
@@ -549,6 +575,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "plasma_battery", chance: 0.45, min: 1, max: 2 },
       { kind: "material", id: "heavy_water_crystal", chance: 0.2, min: 1, max: 1 },
       { kind: "item", id: "potion_hp_large", chance: 0.15, min: 1, max: 1 },
+      { kind: "gear", id: "gear_molten_reactor", chance: 0.04, min: 1, max: 1 },
       { kind: "gear", id: "gear_nova_cannon", chance: 0.05, min: 1, max: 1 }
     ]
   },
@@ -561,6 +588,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "plasma_battery", chance: 0.55, min: 1, max: 2 },
       { kind: "item", id: "tonic_atk", chance: 0.2, min: 1, max: 1 },
+      { kind: "gear", id: "gear_molten_reactor", chance: 0.1, min: 1, max: 1 },
       { kind: "gear", id: "gear_nova_cannon", chance: 0.12, min: 1, max: 1 }
     ]
   },
@@ -573,6 +601,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "plasma_battery", chance: 0.7, min: 1, max: 3 },
       { kind: "item", id: "tonic_atk", chance: 0.25, min: 1, max: 1 },
+      { kind: "gear", id: "gear_solar_regalia_spear", chance: 0.05, min: 1, max: 1 },
       { kind: "gear", id: "gear_nova_cannon", chance: 0.18, min: 1, max: 1 }
     ]
   },
@@ -587,6 +616,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "plasma_battery", chance: 0.9, min: 2, max: 4 },
       { kind: "item", id: "elixir_full", chance: 0.4, min: 1, max: 1 },
       { kind: "gear", id: "gear_nova_cannon", chance: 0.5, min: 1, max: 1 },
+      { kind: "gear", id: "gear_solar_regalia_spear", chance: 0.24, min: 1, max: 1 },
       { kind: "gear", id: "gear_void_carapace", chance: 0.3, min: 1, max: 1 }
     ]
   },
@@ -602,6 +632,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "plasma_battery", chance: 0.55, min: 1, max: 2 },
       { kind: "material", id: "nebula_core", chance: 0.12, min: 1, max: 1 },
       { kind: "item", id: "potion_mp_large", chance: 0.15, min: 1, max: 1 },
+      { kind: "gear", id: "gear_thunder_cloak", chance: 0.07, min: 1, max: 1 },
       { kind: "gear", id: "gear_ion_lance", chance: 0.08, min: 1, max: 1 }
     ]
   },
@@ -614,6 +645,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "plasma_battery", chance: 0.6, min: 1, max: 3 },
       { kind: "material", id: "nebula_core", chance: 0.18, min: 1, max: 1 },
+      { kind: "gear", id: "gear_storm_dualblade", chance: 0.12, min: 1, max: 1 },
       { kind: "gear", id: "gear_void_carapace", chance: 0.1, min: 1, max: 1 }
     ]
   },
@@ -626,6 +658,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "nebula_core", chance: 0.3, min: 1, max: 2 },
       { kind: "item", id: "tonic_atk", chance: 0.25, min: 1, max: 1 },
+      { kind: "gear", id: "gear_storm_dualblade", chance: 0.18, min: 1, max: 1 },
       { kind: "gear", id: "gear_void_carapace", chance: 0.16, min: 1, max: 1 }
     ]
   },
@@ -640,6 +673,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "plasma_battery", chance: 0.9, min: 2, max: 5 },
       { kind: "item", id: "elixir_full", chance: 0.45, min: 1, max: 1 },
       { kind: "gear", id: "gear_ion_lance", chance: 0.5, min: 1, max: 1 },
+      { kind: "gear", id: "gear_storm_dualblade", chance: 0.3, min: 1, max: 1 },
       { kind: "gear", id: "gear_void_carapace", chance: 0.35, min: 1, max: 1 }
     ]
   },
@@ -655,6 +689,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "nebula_core", chance: 0.5, min: 1, max: 2 },
       { kind: "material", id: "plasma_battery", chance: 0.4, min: 1, max: 2 },
       { kind: "item", id: "potion_hp_large", chance: 0.2, min: 1, max: 2 },
+      { kind: "gear", id: "gear_gravity_halberd", chance: 0.08, min: 1, max: 1 },
       { kind: "gear", id: "gear_titan_bulwark", chance: 0.06, min: 1, max: 1 }
     ]
   },
@@ -667,6 +702,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
     dropTable: [
       { kind: "material", id: "nebula_core", chance: 0.6, min: 1, max: 2 },
       { kind: "item", id: "tonic_atk", chance: 0.25, min: 1, max: 1 },
+      { kind: "gear", id: "gear_gravity_halberd", chance: 0.16, min: 1, max: 1 },
       { kind: "gear", id: "gear_singularity_edge", chance: 0.1, min: 1, max: 1 }
     ]
   },
@@ -680,6 +716,7 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "nebula_core", chance: 0.8, min: 1, max: 3 },
       { kind: "item", id: "elixir_full", chance: 0.35, min: 1, max: 1 },
       { kind: "gear", id: "gear_singularity_edge", chance: 0.4, min: 1, max: 1 },
+      { kind: "gear", id: "gear_stellar_tomb_plate", chance: 0.2, min: 1, max: 1 },
       { kind: "gear", id: "gear_titan_bulwark", chance: 0.3, min: 1, max: 1 }
     ]
   },
@@ -693,6 +730,8 @@ export const MONSTER_TEMPLATES: Record<string, MonsterTemplate> = {
       { kind: "material", id: "nebula_core", chance: 0.95, min: 2, max: 4 },
       { kind: "item", id: "elixir_full", chance: 0.5, min: 1, max: 2 },
       { kind: "gear", id: "gear_singularity_edge", chance: 0.6, min: 1, max: 1 },
+      { kind: "gear", id: "gear_abyss_tide_scepter", chance: 0.28, min: 1, max: 1 },
+      { kind: "gear", id: "gear_voidsea_raiment", chance: 0.24, min: 1, max: 1 },
       { kind: "gear", id: "gear_titan_bulwark", chance: 0.45, min: 1, max: 1 }
     ]
   }
